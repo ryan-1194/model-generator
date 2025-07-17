@@ -4,9 +4,18 @@ namespace App\Console\Commands;
 
 use App\Services\ModelGeneratorService;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Console\PromptsForMissingInput;
 use Illuminate\Support\Str;
 
-class GenerateModelCommand extends Command
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\text;
+use function Laravel\Prompts\select;
+use function Laravel\Prompts\multiselect;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\warning;
+use function Laravel\Prompts\error;
+
+class GenerateModelCommand extends Command implements PromptsForMissingInput
 {
     /**
      * The name and signature of the console command.
@@ -30,8 +39,7 @@ class GenerateModelCommand extends Command
                             {--timestamps : Include timestamps}
                             {--no-timestamps : Skip timestamps}
                             {--soft-deletes : Include soft deletes}
-                            {--columns= : JSON string of columns definition}
-                            {--preview : Show preview only, do not generate files}';
+                            {--columns= : JSON string of columns definition}';
 
     /**
      * The console command description.
@@ -48,31 +56,38 @@ class GenerateModelCommand extends Command
         $modelName = $this->argument('name');
 
         // Validate model name
-        if (!$modelName || !preg_match('/^[A-Z][a-zA-Z0-9]*$/', $modelName)) {
-            $this->error('Model name must be in StudlyCase format (e.g., BlogPost)');
+        if (! $modelName || ! preg_match('/^[A-Z][a-zA-Z0-9]*$/', $modelName)) {
+            error('Model name must be in StudlyCase format (e.g., BlogPost)');
+
             return 1;
         }
 
         // Build form data array
         $formData = $this->buildFormData($modelName);
 
-        $generator = new ModelGeneratorService();
+        $generator = new ModelGeneratorService;
 
-        // Show preview if requested
-        if ($this->option('preview')) {
-            $this->showPreview($generator, $formData);
+        // Always show preview first
+        info('Generating preview...');
+        $this->showPreview($generator, $formData);
+
+        // Ask for confirmation before generating files
+        if (! confirm('Do you want to generate these files?', true)) {
+            info('File generation cancelled.');
+
             return 0;
         }
 
         // Generate files
-        $this->info("Generating model: {$modelName}");
+        info("Generating model: {$modelName}");
         $result = $generator->generateFromFormData($formData);
 
         if ($result['success']) {
-            $this->info($result['message']);
+            info($result['message']);
             $this->displayResults($result['results']);
         } else {
-            $this->error($result['message']);
+            error($result['message']);
+
             return 1;
         }
 
@@ -87,9 +102,9 @@ class GenerateModelCommand extends Command
         $formData = [
             'model_name' => $modelName,
             'table_name' => $this->option('table') ?: Str::snake(Str::plural($modelName)),
-            'generate_migration' => $this->shouldGenerate('migration', true),
-            'generate_factory' => $this->shouldGenerate('factory', true),
-            'generate_policy' => $this->shouldGenerate('policy', true),
+            'generate_migration' => $this->shouldGenerate('migration'),
+            'generate_factory' => $this->shouldGenerate('factory'),
+            'generate_policy' => $this->shouldGenerate('policy'),
             'generate_resource_controller' => $this->option('resource-controller'),
             'generate_json_resource' => $this->option('json-resource'),
             'generate_api_controller' => $this->option('api-controller'),
@@ -106,7 +121,7 @@ class GenerateModelCommand extends Command
     /**
      * Determine if a feature should be generated based on options
      */
-    protected function shouldGenerate(string $feature, bool $default = false): bool
+    protected function shouldGenerate(string $feature, bool $default = true): bool
     {
         if ($this->option($feature)) {
             return true;
@@ -129,31 +144,56 @@ class GenerateModelCommand extends Command
         if ($columnsJson) {
             $columns = json_decode($columnsJson, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $this->error('Invalid JSON format for columns');
+                error('Invalid JSON format for columns');
+
                 return [];
             }
+
             return $columns;
         }
 
-        // Interactive column input
+        // Interactive column input using Laravel Prompts
         $columns = [];
 
-        if ($this->confirm('Would you like to add custom columns?', false)) {
+        if (confirm('Would you like to add custom columns?', false)) {
             while (true) {
-                $columnName = $this->ask('Column name (or press Enter to finish)');
+                $columnName = text(
+                    label: 'Column name',
+                    placeholder: 'Enter column name or leave empty to finish',
+                    hint: 'Press Enter without typing to finish adding columns'
+                );
+
                 if (empty($columnName)) {
                     break;
                 }
 
-                $dataType = $this->choice('Data type', [
-                    'string', 'text', 'integer', 'bigInteger', 'boolean',
-                    'date', 'datetime', 'timestamp', 'decimal', 'float', 'json'
-                ], 'string');
+                $dataType = select(
+                    label: 'Data type',
+                    options: [
+                        'string' => 'String (VARCHAR)',
+                        'text' => 'Text (TEXT)',
+                        'integer' => 'Integer (INT)',
+                        'bigInteger' => 'Big Integer (BIGINT)',
+                        'boolean' => 'Boolean (TINYINT)',
+                        'date' => 'Date (DATE)',
+                        'datetime' => 'DateTime (DATETIME)',
+                        'timestamp' => 'Timestamp (TIMESTAMP)',
+                        'decimal' => 'Decimal (DECIMAL)',
+                        'float' => 'Float (FLOAT)',
+                        'json' => 'JSON (JSON)',
+                    ],
+                    default: 'string'
+                );
 
-                $nullable = $this->confirm('Nullable?', false);
-                $unique = $this->confirm('Unique?', false);
-                $fillable = $this->confirm('Fillable?', true);
-                $defaultValue = $this->ask('Default value (optional)');
+                $nullable = confirm('Should this column be nullable?', false);
+                $unique = confirm('Should this column be unique?', false);
+                $fillable = confirm('Should this column be fillable?', true);
+
+                $defaultValue = text(
+                    label: 'Default value',
+                    placeholder: 'Leave empty for no default value',
+                    required: false
+                );
 
                 $columns[] = [
                     'column_name' => $columnName,
@@ -163,6 +203,8 @@ class GenerateModelCommand extends Command
                     'is_fillable' => $fillable,
                     'default_value' => $defaultValue ?: '',
                 ];
+
+                info("Added column: {$columnName} ({$dataType})");
             }
         }
 
@@ -199,7 +241,7 @@ class GenerateModelCommand extends Command
             }
         }
 
-        if (isset($results['artisan_output']) && !empty(trim($results['artisan_output']))) {
+        if (isset($results['artisan_output']) && ! empty(trim($results['artisan_output']))) {
             $this->line('');
             $this->line('<fg=yellow>Artisan Output:</fg=yellow>');
             $this->line($results['artisan_output']);

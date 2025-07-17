@@ -29,10 +29,10 @@ class ModelGenerationData
         public ?string $form_request_name = null,
         public ?string $repository_name = null,
         /** @var Collection<ColumnData> */
-        public Collection $columns = new Collection(),
+        public Collection $columns = new Collection,
     ) {
         // Auto-generate table name if not provided
-        if (!$this->table_name) {
+        if (! $this->table_name) {
             $this->table_name = Str::snake(Str::plural($this->model_name));
         }
     }
@@ -40,7 +40,7 @@ class ModelGenerationData
     public static function fromArray(array $data): self
     {
         $columns = collect($data['columns'] ?? [])
-            ->map(fn(array $columnData) => ColumnData::fromArray($columnData));
+            ->map(fn (array $columnData) => ColumnData::fromArray($columnData));
 
         return new self(
             model_name: $data['model_name'],
@@ -68,7 +68,7 @@ class ModelGenerationData
 
     public static function fromModelDefinition(ModelDefinition $modelDefinition): self
     {
-        $columns = $modelDefinition->columns->map(fn($column) => new ColumnData(
+        $columns = $modelDefinition->columns->map(fn ($column) => new ColumnData(
             column_name: $column->column_name,
             data_type: $column->data_type,
             nullable: $column->nullable,
@@ -103,42 +103,42 @@ class ModelGenerationData
 
     public function getFactoryName(): string
     {
-        return $this->factory_name ?: $this->model_name . 'Factory';
+        return $this->factory_name ?: $this->model_name.'Factory';
     }
 
     public function getPolicyName(): string
     {
-        return $this->policy_name ?: $this->model_name . 'Policy';
+        return $this->policy_name ?: $this->model_name.'Policy';
     }
 
     public function getResourceControllerName(): string
     {
-        return $this->resource_controller_name ?: $this->model_name . 'Controller';
+        return $this->resource_controller_name ?: $this->model_name.'Controller';
     }
 
     public function getJsonResourceName(): string
     {
-        return $this->json_resource_name ?: $this->model_name . 'Resource';
+        return $this->json_resource_name ?: $this->model_name.'Resource';
     }
 
     public function getApiControllerName(): string
     {
-        return $this->api_controller_name ?: $this->model_name . 'ApiController';
+        return $this->api_controller_name ?: $this->model_name.'ApiController';
     }
 
     public function getFormRequestName(): string
     {
-        return $this->form_request_name ?: $this->model_name . 'Request';
+        return $this->form_request_name ?: $this->model_name.'Request';
     }
 
     public function getRepositoryName(): string
     {
-        return $this->repository_name ?: $this->model_name . 'Repository';
+        return $this->repository_name ?: $this->model_name.'Repository';
     }
 
     public function getRepositoryInterfaceName(): string
     {
-        return $this->getRepositoryName() . 'Interface';
+        return $this->getRepositoryName().'Interface';
     }
 
     public function getFillableColumns(): Collection
@@ -148,8 +148,6 @@ class ModelGenerationData
 
     public function getNonIdColumns(): Collection
     {
-        return $this->columns->filter(fn(ColumnData $column) =>
-            strtolower($column->column_name) !== 'id'
-        );
+        return $this->columns->filter(fn (ColumnData $column) => strtolower($column->column_name) !== 'id');
     }
 }
