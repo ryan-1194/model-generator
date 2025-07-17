@@ -70,27 +70,125 @@ class ModelGeneratorService
 
     protected function generateBaseFiles(ModelGenerationData $data, array &$results): void
     {
-        // Generate model with related files
-        Artisan::call('make:model', [
-            'name' => $data->model_name,
-            '--migration' => $data->generate_migration,
-            '--factory' => $data->generate_factory,
-            '--policy' => $data->generate_policy,
-        ]);
-
-        $results['artisan_output'] = Artisan::output();
+        // Create model file directly using enhanced stub
+        $this->createModelFile($data, $results);
 
         // Generate additional files
         $this->generateAdditionalFiles($data, $results);
     }
 
+    protected function createModelFile(ModelGenerationData $data, array &$results): void
+    {
+        // Create the Models directory if it doesn't exist
+        $modelsDir = app_path('Models');
+        if (! File::exists($modelsDir)) {
+            File::makeDirectory($modelsDir, 0755, true);
+        }
+
+        // Generate model content using the same logic as preview
+        $modelContent = $this->generateModelPreview($data);
+
+        // Write the model file
+        $modelPath = app_path("Models/{$data->model_name}.php");
+        File::put($modelPath, $modelContent);
+
+        $results['model'] = $data->model_name;
+        $results['model_file'] = $modelPath;
+    }
+
+    protected function createMigrationFile(ModelGenerationData $data, array &$results): void
+    {
+        // Create the migrations directory if it doesn't exist
+        $migrationsDir = database_path('migrations');
+        if (! File::exists($migrationsDir)) {
+            File::makeDirectory($migrationsDir, 0755, true);
+        }
+
+        // Generate migration content using the same logic as preview
+        $migrationContent = $this->generateMigrationPreview($data);
+
+        // Generate migration filename with timestamp
+        $timestamp = date('Y_m_d_His');
+        $migrationName = 'create_'.$data->table_name.'_table';
+        $migrationPath = database_path("migrations/{$timestamp}_{$migrationName}.php");
+
+        // Write the migration file
+        File::put($migrationPath, $migrationContent);
+
+        $results['migration'] = $migrationName;
+        $results['migration_file'] = $migrationPath;
+    }
+
+    protected function createJsonResourceFile(ModelGenerationData $data, array &$results): void
+    {
+        // Create the Resources directory if it doesn't exist
+        $resourcesDir = app_path('Http/Resources');
+        if (! File::exists($resourcesDir)) {
+            File::makeDirectory($resourcesDir, 0755, true);
+        }
+
+        // Generate resource content using the same logic as preview
+        $resourceContent = $this->generateJsonResourcePreview($data);
+        $resourceName = $data->getJsonResourceName();
+
+        // Write the resource file
+        $resourcePath = app_path("Http/Resources/{$resourceName}.php");
+        File::put($resourcePath, $resourceContent);
+
+        $results['json_resource'] = $resourceName;
+        $results['json_resource_file'] = $resourcePath;
+    }
+
+    protected function createFormRequestFile(ModelGenerationData $data, array &$results): void
+    {
+        // Create the Requests directory if it doesn't exist
+        $requestsDir = app_path('Http/Requests');
+        if (! File::exists($requestsDir)) {
+            File::makeDirectory($requestsDir, 0755, true);
+        }
+
+        // Generate request content using the same logic as preview
+        $requestContent = $this->generateFormRequestPreview($data);
+        $requestName = $data->getFormRequestName();
+
+        // Write the request file
+        $requestPath = app_path("Http/Requests/{$requestName}.php");
+        File::put($requestPath, $requestContent);
+
+        $results['form_request'] = $requestName;
+        $results['form_request_file'] = $requestPath;
+    }
+
     protected function generateAdditionalFiles(ModelGenerationData $data, array &$results): void
     {
-        // Generate JSON Resource
+        // Generate Migration directly using enhanced stub
+        if ($data->generate_migration) {
+            $this->createMigrationFile($data, $results);
+        }
+
+        // Generate Factory
+        if ($data->generate_factory) {
+            $factoryName = $data->getFactoryName();
+            Artisan::call('make:factory', [
+                'name' => $factoryName,
+                '--model' => $data->model_name,
+            ]);
+            $results['factory'] = $factoryName;
+        }
+
+        // Generate Policy
+        if ($data->generate_policy) {
+            $policyName = $data->getPolicyName();
+            Artisan::call('make:policy', [
+                'name' => $policyName,
+                '--model' => $data->model_name,
+            ]);
+            $results['policy'] = $policyName;
+        }
+
+        // Generate JSON Resource directly using enhanced stub
         if ($data->generate_json_resource) {
-            $resourceName = $data->getJsonResourceName();
-            Artisan::call('make:resource', ['name' => $resourceName]);
-            $results['json_resource'] = $resourceName;
+            $this->createJsonResourceFile($data, $results);
         }
 
         // Generate Resource Controller
@@ -115,11 +213,9 @@ class ModelGeneratorService
             $results['api_controller'] = $controllerName;
         }
 
-        // Generate Form Request
+        // Generate Form Request directly using enhanced stub
         if ($data->generate_form_request) {
-            $requestName = $data->getFormRequestName();
-            Artisan::call('make:request', ['name' => $requestName]);
-            $results['form_request'] = $requestName;
+            $this->createFormRequestFile($data, $results);
         }
 
         // Generate Repository
@@ -139,23 +235,11 @@ class ModelGeneratorService
 
     protected function modifyGeneratedFiles(ModelGenerationData $data, array &$results): void
     {
-        // Modify model file
-        $this->modifyModelFile($data, $results);
+        // Migration, JSON Resource, and Form Request files are now generated directly
+        // with the correct content using enhanced stubs, so no modification is needed.
 
-        // Modify migration file if needed
-        if ($data->generate_migration) {
-            $this->modifyMigrationFile($data, $results);
-        }
-
-        // Modify JSON Resource file if needed
-        if ($data->generate_json_resource) {
-            $this->modifyJsonResourceFile($data, $results);
-        }
-
-        // Modify Form Request file if needed
-        if ($data->generate_form_request) {
-            $this->modifyFormRequestFile($data, $results);
-        }
+        // This method is kept for potential future use with other file types
+        // that might still need post-generation modification.
     }
 
     protected function modifyModelFile(ModelGenerationData $data, array &$results): void
@@ -171,55 +255,6 @@ class ModelGeneratorService
 
         File::put($modelPath, $newContent);
         $results['model_file'] = $modelPath;
-    }
-
-    protected function modifyMigrationFile(ModelGenerationData $data, array &$results): void
-    {
-        $migrationFiles = File::glob(database_path('migrations/*_create_'.$data->table_name.'_table.php'));
-
-        if (empty($migrationFiles)) {
-            throw new \Exception("Migration file not found for table: {$data->table_name}");
-        }
-
-        $migrationPath = $migrationFiles[0];
-
-        // Generate the exact same content as the preview
-        $newContent = $this->generateMigrationPreview($data);
-
-        File::put($migrationPath, $newContent);
-        $results['migration_file'] = $migrationPath;
-    }
-
-    protected function modifyJsonResourceFile(ModelGenerationData $data, array &$results): void
-    {
-        $resourceName = $data->getJsonResourceName();
-        $resourcePath = app_path("Http/Resources/{$resourceName}.php");
-
-        if (! File::exists($resourcePath)) {
-            throw new \Exception("JSON Resource file not found: {$resourcePath}");
-        }
-
-        // Generate the exact same content as the preview
-        $newContent = $this->generateJsonResourcePreview($data);
-
-        File::put($resourcePath, $newContent);
-        $results['json_resource_file'] = $resourcePath;
-    }
-
-    protected function modifyFormRequestFile(ModelGenerationData $data, array &$results): void
-    {
-        $requestName = $data->getFormRequestName();
-        $requestPath = app_path("Http/Requests/{$requestName}.php");
-
-        if (! File::exists($requestPath)) {
-            throw new \Exception("Form Request file not found: {$requestPath}");
-        }
-
-        // Generate the exact same content as the preview
-        $newContent = $this->generateFormRequestPreview($data);
-
-        File::put($requestPath, $newContent);
-        $results['form_request_file'] = $requestPath;
     }
 
     protected function generateColumnDefinition(ColumnData $column): string
@@ -279,6 +314,14 @@ class ModelGeneratorService
             $previews['repository_interface_preview'] = $this->generateRepositoryInterfacePreview($data);
         }
 
+        if ($data->generate_factory) {
+            $previews['factory_preview'] = $this->generateFactoryPreview($data);
+        }
+
+        if ($data->generate_policy) {
+            $previews['policy_preview'] = $this->generatePolicyPreview($data);
+        }
+
         return $previews;
     }
 
@@ -298,30 +341,38 @@ class ModelGeneratorService
         $stubPath = base_path('stubs/model.enhanced.stub');
         $stub = File::get($stubPath);
         $replacements = [
-            '{{ namespace }}' => "App\\Models;\n",
+            '{{ namespace }}' => 'App\\Models;',
             '{{ class }}' => $data->model_name,
         ];
 
+        // Handle trait imports
+        $imports = [];
         if ($data->generate_factory) {
-            $replacements['{{ factoryImport }}'] = "use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;\n";
-            $replacements['{{ factory }}'] = "use HasFactory;\n";
-        } else {
-            $replacements['{{ factory }}'] = '';
-            $replacements["{{ factory }}\n"] = '';
-            $replacements["{{ factory }}\r\n"] = '';
-            $replacements["{{ factoryImport }}\n"] = '';
-            $replacements["{{ factoryImport }}\r\n"] = '';
+            $imports[] = 'use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;';
+        }
+        if ($data->has_soft_deletes) {
+            $imports[] = 'use Illuminate\\Database\\Eloquent\\SoftDeletes;';
         }
 
-        if ($data->has_soft_deletes) {
-            $replacements['{{ softDeletesImport }}'] = "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n";
-            $replacements['{{ softDeletesTrait }}'] = "use SoftDeletes;\n";
+        if (! empty($imports)) {
+            $replacements['{{ imports }}'] = implode("\n", $imports);
         } else {
-            $replacements['{{ softDeletesTrait }}'] = '';
-            $replacements["{{ softDeletesTrait }}\n"] = '';
-            $replacements["{{ softDeletesTrait }}\r\n"] = '';
-            $replacements["{{ softDeletesImport }}\n"] = '';
-            $replacements["{{ softDeletesImport }}\r\n"] = '';
+            $replacements["{{ imports }}\n"] = '';
+        }
+
+        // Handle trait usage - combine into single use statement
+        $traits = [];
+        if ($data->generate_factory) {
+            $traits[] = 'HasFactory';
+        }
+        if ($data->has_soft_deletes) {
+            $traits[] = 'SoftDeletes';
+        }
+
+        if (! empty($traits)) {
+            $replacements['{{ traits }}'] = 'use '.implode(", \n\t\t", $traits).";\n";
+        } else {
+            $replacements['{{ traits }}'] = "//\n";
         }
 
         // Generate fillable array
@@ -330,7 +381,7 @@ class ModelGeneratorService
             ->toArray();
 
         if (! empty($fillableColumns)) {
-            $replacements['{{ fillableArray }}'] = "protected \$fillable = [\n        '".implode("',\n        '", $fillableColumns)."',\n    ];\n";
+            $replacements['{{ fillableArray }}'] = "protected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
         } else {
             $replacements['{{ fillableArray }}'] = '';
             $replacements["{{ fillableArray }}\n"] = '';
@@ -347,7 +398,7 @@ class ModelGeneratorService
         }
 
         if (! empty($casts)) {
-            $replacements['{{ castsArray }}'] = "protected \$casts = [\n        ".implode(",\n        ", $casts)."\n    ];\n";
+            $replacements['{{ castsArray }}'] = "protected \$casts = [\n\t\t".implode(",\n\t\t", $casts)."\n\t];\n";
         } else {
             $replacements['{{ castsArray }}'] = '';
             $replacements["{{ castsArray }}\n"] = '';
@@ -380,11 +431,11 @@ class ModelGeneratorService
         }
 
         if ($data->has_timestamps) {
-            $columnDefinitions[] = '            $table->timestamps();';
+            $columnDefinitions[] = "\t\t\t\$table->timestamps();";
         }
 
         if ($data->has_soft_deletes) {
-            $columnDefinitions[] = '            $table->softDeletes();';
+            $columnDefinitions[] = "\t\t\t\$table->softDeletes();";
         }
 
         $columnsString = implode("\n", $columnDefinitions);
@@ -408,19 +459,19 @@ class ModelGeneratorService
 
         // Generate array of columns for the resource
         $resourceFields = [];
-        $resourceFields[] = "            'id' => \$this->id,";
+        $resourceFields[] = "\t\t\t'id' => \$this->id,";
 
         foreach ($data->getNonIdColumns() as $column) {
-            $resourceFields[] = "            '{$column->column_name}' => \$this->{$column->column_name},";
+            $resourceFields[] = "\t\t\t'{$column->column_name}' => \$this->{$column->column_name},";
         }
 
         if ($data->has_timestamps) {
-            $resourceFields[] = "            'created_at' => \$this->created_at,";
-            $resourceFields[] = "            'updated_at' => \$this->updated_at,";
+            $resourceFields[] = "\t\t\t'created_at' => \$this->created_at,";
+            $resourceFields[] = "\t\t\t'updated_at' => \$this->updated_at,";
         }
 
         if ($data->has_soft_deletes) {
-            $resourceFields[] = "            'deleted_at' => \$this->deleted_at,";
+            $resourceFields[] = "\t\t\t'deleted_at' => \$this->deleted_at,";
         }
 
         $fieldsString = implode("\n", $resourceFields);
@@ -516,7 +567,7 @@ class ModelGeneratorService
             }
 
             if (! empty($rule)) {
-                $rules[] = "            '{$column->column_name}' => '".implode('|', $rule)."',";
+                $rules[] = "\t\t\t'{$column->column_name}' => '".implode('|', $rule)."',";
             }
         }
         $rulesString = implode("\n", $rules);
@@ -533,18 +584,82 @@ class ModelGeneratorService
 
     protected function generateRepositoryPreview(ModelGenerationData $data): string
     {
+        // Read the repository stub file
+        $stubPath = app_path('Repositories/Console/stubs/repository.stub');
+        $stub = File::get($stubPath);
+
         $repositoryName = $data->getRepositoryName();
         $repositoryInterfaceName = $data->getRepositoryInterfaceName();
 
-        return "<?php\n\nnamespace App\\Repositories;\n\nuse App\\Models\\{$data->model_name};\nuse App\\Repositories\\Contracts\\{$repositoryInterfaceName};\n\nclass {$repositoryName} extends BaseRepository implements {$repositoryInterfaceName}\n{\n    public function __construct()\n    {\n        parent::__construct(app({$data->model_name}::class));\n    }\n}";
+        // Replace placeholders with actual values
+        $replacements = [
+            '{{ namespacedModel }}' => 'App\\Models\\'.$data->model_name,
+            '{{ namespacedInterface }}' => 'App\\Repositories\\Contracts\\'.$repositoryInterfaceName,
+            '{{CLASS}}' => $repositoryName,
+            '{{INTERFACE}}' => $repositoryInterfaceName,
+            '{{MODEL}}' => $data->model_name,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
     }
 
     protected function generateRepositoryInterfacePreview(ModelGenerationData $data): string
     {
-        $repositoryName = $data->getRepositoryName();
+        // Read the interface stub file
+        $stubPath = app_path('Repositories/Console/stubs/interface.stub');
+        $stub = File::get($stubPath);
+
         $repositoryInterfaceName = $data->getRepositoryInterfaceName();
 
-        return "<?php\n\nnamespace App\\Repositories\\Contracts;\n\nuse App\\Models\\{$data->model_name};\n\n/**\n * @method {$data->model_name}|null find(mixed \$id)\n * @method {$data->model_name}|null first()\n */\ninterface {$repositoryInterfaceName} extends RepositoryInterface\n{\n\t//define set of methods that {$repositoryInterfaceName} Repository must implement\n}";
+        // Replace placeholders with actual values
+        $replacements = [
+            '{{ namespacedModel }}' => 'App\\Models\\'.$data->model_name,
+            '{{MODEL}}' => $data->model_name,
+            '{{CLASS}}' => $repositoryInterfaceName,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
+    }
+
+    protected function generateFactoryPreview(ModelGenerationData $data): string
+    {
+        // Read the factory stub file
+        $stubPath = base_path('stubs/factory.stub');
+        $stub = File::get($stubPath);
+
+        $factoryName = $data->getFactoryName();
+
+        // Replace placeholders with actual values
+        $replacements = [
+            '{{ factoryNamespace }}' => 'Database\\Factories',
+            '{{ namespacedModel }}' => 'App\\Models\\'.$data->model_name,
+            '{{ factory }}' => $data->model_name,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
+    }
+
+    protected function generatePolicyPreview(ModelGenerationData $data): string
+    {
+        // Read the policy stub file
+        $stubPath = base_path('stubs/policy.stub');
+        $stub = File::get($stubPath);
+
+        $policyName = $data->getPolicyName();
+        $modelVariable = Str::camel($data->model_name);
+
+        // Replace placeholders with actual values
+        $replacements = [
+            '{{ namespace }}' => 'App\\Policies',
+            '{{ namespacedModel }}' => 'App\\Models\\'.$data->model_name,
+            '{{ namespacedUserModel }}' => 'App\\Models\\User',
+            '{{ class }}' => $policyName,
+            '{{ user }}' => 'User',
+            '{{ model }}' => $data->model_name,
+            '{{ modelVariable }}' => $modelVariable,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
     }
 
     /**

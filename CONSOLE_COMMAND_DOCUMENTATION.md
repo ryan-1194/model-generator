@@ -1,7 +1,7 @@
 # Console Command for ModelGeneratorService
 
 ## Overview
-The `generate:model` console command provides a command-line interface to the ModelGeneratorService, allowing you to generate Laravel models and related files directly from the terminal.
+The `generate:model` console command provides a beautiful, interactive command-line interface to the ModelGeneratorService using Laravel Prompts. It allows you to generate Laravel models and related files directly from the terminal with an enhanced user experience that includes automatic preview generation and confirmation prompts.
 
 ## Basic Usage
 
@@ -36,7 +36,12 @@ php artisan generate:model ModelName [options]
 
 ### Column Definition Options
 - `--columns=JSON` - Define columns using JSON string
-- `--preview` - Show preview only, do not generate files
+
+### New Interactive Experience
+- **Automatic Preview**: All commands now show a preview of generated files by default
+- **Laravel Prompts**: Enhanced interactive experience with beautiful prompts and better UX
+- **Confirmation Required**: You'll be asked to confirm before files are actually generated
+- **Cancellable**: You can review the preview and cancel generation if needed
 
 ## Examples
 
@@ -95,10 +100,16 @@ php artisan generate:model Product --json-resource --form-request --columns='[
 ]'
 ```
 
-### Preview Mode
+### Automatic Preview and Confirmation
 ```bash
-# Preview generated code without creating files
-php artisan generate:model Product --preview --columns='[{"column_name":"name","data_type":"string","nullable":false,"unique":false,"is_fillable":true,"default_value":""}]'
+# All commands now automatically show preview and ask for confirmation
+php artisan generate:model Product --columns='[{"column_name":"name","data_type":"string","nullable":false,"unique":false,"is_fillable":true,"default_value":""}]'
+
+# The command will:
+# 1. Show a beautiful preview of all generated files
+# 2. Ask "Do you want to generate these files?" with Laravel Prompts
+# 3. Only generate files if you confirm with "Yes"
+# 4. Allow you to cancel after reviewing the preview
 ```
 
 ### Complete Example with All Options
@@ -154,49 +165,56 @@ php artisan generate:model BlogPost \
   ]'
 ```
 
-## Interactive Column Input
+## Enhanced Interactive Column Input with Laravel Prompts
 
-If you don't provide the `--columns` option, the command will ask if you want to add custom columns interactively:
+If you don't provide the `--columns` option, the command will use beautiful Laravel Prompts for interactive input:
 
 ```bash
 php artisan generate:model Product --json-resource
 
-# The command will prompt:
-# Would you like to add custom columns? (yes/no) [no]:
-# > yes
+# The command will show beautiful prompts:
+# ┌ Would you like to add custom columns? ───────────────────────┐
+# │ Yes                                                          │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Column name (or press Enter to finish):
-# > name
+# ┌ Column name ─────────────────────────────────────────────────┐
+# │ name                                                         │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Data type:
-#   [0] string
-#   [1] text
-#   [2] integer
-#   [3] bigInteger
-#   [4] boolean
-#   [5] date
-#   [6] datetime
-#   [7] timestamp
-#   [8] decimal
-#   [9] float
-#   [10] json
-# > 0
+# ┌ Data type ───────────────────────────────────────────────────┐
+# │ String (VARCHAR)                                             │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Nullable? (yes/no) [no]:
-# > no
+# ┌ Should this column be nullable? ─────────────────────────────┐
+# │ No                                                           │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Unique? (yes/no) [no]:
-# > no
+# ┌ Should this column be unique? ───────────────────────────────┐
+# │ No                                                           │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Fillable? (yes/no) [yes]:
-# > yes
+# ┌ Should this column be fillable? ─────────────────────────────┐
+# │ Yes                                                          │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Default value (optional):
-# > 
+# ┌ Default value ───────────────────────────────────────────────┐
+# │                                                              │
+# └──────────────────────────────────────────────────────────────┘
 # 
-# Column name (or press Enter to finish):
-# > (press Enter to finish)
+# Added column: name (string)
+# 
+# ┌ Column name ─────────────────────────────────────────────────┐
+# │                                                              │
+# └──────────────────────────────────────────────────────────────┘
+# (Press Enter without typing to finish adding columns)
 ```
+
+### Laravel Prompts Features:
+- **Beautiful UI**: Clean, boxed prompts with clear labels
+- **Descriptive Options**: Data types show both name and SQL type (e.g., "String (VARCHAR)")
+- **Helpful Hints**: Clear instructions and placeholders
+- **Progress Feedback**: Shows confirmation when columns are added
+- **Easy Exit**: Simply press Enter without typing to finish
 
 ## Column Definition Format
 
@@ -265,10 +283,12 @@ This console command uses the same ModelGeneratorService that powers the Filamen
 
 ## Tips
 
-1. **Use Preview Mode**: Always use `--preview` first to see what will be generated
-2. **JSON Formatting**: Use a JSON formatter to ensure your column definitions are valid
-3. **Incremental Generation**: You can run the command multiple times with different options to add more files
-4. **Backup**: Consider backing up your project before running file generation commands
+1. **Review Before Confirming**: The command automatically shows previews - take time to review them before confirming
+2. **Interactive Column Input**: If you don't provide `--columns`, you'll get beautiful Laravel Prompts for interactive input
+3. **JSON Formatting**: Use a JSON formatter to ensure your column definitions are valid when using `--columns`
+4. **Incremental Generation**: You can run the command multiple times with different options to add more files
+5. **Safe by Default**: You can always cancel after seeing the preview - no files are generated until you confirm
+6. **Backup**: Consider backing up your project before running file generation commands
 
 ## Troubleshooting
 
