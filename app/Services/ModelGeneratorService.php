@@ -584,18 +584,41 @@ class ModelGeneratorService
 
     protected function generateRepositoryPreview(ModelGenerationData $data): string
     {
+        // Read the repository stub file
+        $stubPath = app_path('Repositories/Console/stubs/repository.stub');
+        $stub = File::get($stubPath);
+
         $repositoryName = $data->getRepositoryName();
         $repositoryInterfaceName = $data->getRepositoryInterfaceName();
 
-        return "<?php\n\nnamespace App\\Repositories;\n\nuse App\\Models\\{$data->model_name};\nuse App\\Repositories\\Contracts\\{$repositoryInterfaceName};\n\nclass {$repositoryName} extends BaseRepository implements {$repositoryInterfaceName}\n{\n    public function __construct()\n    {\n        parent::__construct(app({$data->model_name}::class));\n    }\n}";
+        // Replace placeholders with actual values
+        $replacements = [
+            '{{ namespacedModel }}' => 'App\\Models\\'.$data->model_name,
+            '{{ namespacedInterface }}' => 'App\\Repositories\\Contracts\\'.$repositoryInterfaceName,
+            '{{CLASS}}' => $repositoryName,
+            '{{INTERFACE}}' => $repositoryInterfaceName,
+            '{{MODEL}}' => $data->model_name,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
     }
 
     protected function generateRepositoryInterfacePreview(ModelGenerationData $data): string
     {
-        $repositoryName = $data->getRepositoryName();
+        // Read the interface stub file
+        $stubPath = app_path('Repositories/Console/stubs/interface.stub');
+        $stub = File::get($stubPath);
+
         $repositoryInterfaceName = $data->getRepositoryInterfaceName();
 
-        return "<?php\n\nnamespace App\\Repositories\\Contracts;\n\nuse App\\Models\\{$data->model_name};\n\n/**\n * @method {$data->model_name}|null find(mixed \$id)\n * @method {$data->model_name}|null first()\n */\ninterface {$repositoryInterfaceName} extends RepositoryInterface\n{\n\t//define set of methods that {$repositoryInterfaceName} Repository must implement\n}";
+        // Replace placeholders with actual values
+        $replacements = [
+            '{{ namespacedModel }}' => 'App\\Models\\'.$data->model_name,
+            '{{MODEL}}' => $data->model_name,
+            '{{CLASS}}' => $repositoryInterfaceName,
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
     }
 
     protected function generateFactoryPreview(ModelGenerationData $data): string
