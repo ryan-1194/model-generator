@@ -1,0 +1,16 @@
+<?php
+
+namespace {{ namespace }}
+
+{{ factoryImport }}
+{{ softDeletesImport }}
+use Illuminate\Database\Eloquent\Model;
+
+class {{ class }} extends Model
+{
+    {{ factory }}
+    {{ softDeletesTrait }}
+    {{ fillableArray }}
+    {{ castsArray }}
+    {{ timestampsProperty }}
+}
