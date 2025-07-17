@@ -45,6 +45,26 @@
     </div>
     @endif
 
+
+    @if(isset($previews['factory_preview']))
+    <div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">Factory Preview</h3>
+        <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+            <pre class="text-sm text-gray-100"><code class="language-php">{{ $previews['factory_preview'] }}</code></pre>
+        </div>
+    </div>
+    @endif
+
+
+    @if(isset($previews['policy_preview']))
+    <div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">Policy Preview</h3>
+        <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+            <pre class="text-sm text-gray-100"><code class="language-php">{{ $previews['policy_preview'] }}</code></pre>
+        </div>
+    </div>
+    @endif
+
     @if(isset($previews['repository_preview']))
     <div>
         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">Repository Preview</h3>

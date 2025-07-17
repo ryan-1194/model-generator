@@ -2,14 +2,12 @@
 
 namespace {{ namespace }}
 
-{{ factoryImport }}
-{{ softDeletesImport }}
+{{ imports }}
 use Illuminate\Database\Eloquent\Model;
 
 class {{ class }} extends Model
 {
-    {{ factory }}
-    {{ softDeletesTrait }}
+    {{ traits }}
     {{ fillableArray }}
     {{ castsArray }}
     {{ timestampsProperty }}
