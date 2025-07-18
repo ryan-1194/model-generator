@@ -23,13 +23,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-//        if ($this->app->runningInConsole()) {
-//            $this->commands([
-//                GenerateRepository::class,
-//                GenerateRepositoryInterface::class,
-//            ]);
-//        }
-
         $this->registerRepositories();
     }
 
@@ -42,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
 
         foreach ($repositoryFiles as $repositoryFile) {
             $className = pathinfo($repositoryFile, PATHINFO_FILENAME);
-            $class = $namespace . $className;
+            $class = $namespace.$className;
 
             if (class_exists($class) && ! ($reflector = new \ReflectionClass($class))->isAbstract()) {
                 $interfaces = $reflector->getInterfaces();
