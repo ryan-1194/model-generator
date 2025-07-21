@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\CustomModelGenerator\Console\CustomModelMakeCommand;
+use App\CustomModelGenerator\Console\CustomModelFromTableCommand;
 use App\Console\Commands\GenerateModelCommand;
+use App\ModelGenerator\Console\GenerateCustomModel;
 use App\Repositories\Console\GenerateRepository;
 use App\Repositories\Console\GenerateRepositoryInterface;
 use Illuminate\Support\Facades\File;
@@ -51,5 +54,8 @@ class AppServiceProvider extends ServiceProvider
         $this->commands(GenerateRepository::class);
         $this->commands(GenerateRepositoryInterface::class);
         $this->commands(GenerateModelCommand::class);
+        $this->commands(GenerateCustomModel::class);
+        $this->commands(CustomModelMakeCommand::class);
+        $this->commands(CustomModelFromTableCommand::class);
     }
 }

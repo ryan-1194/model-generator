@@ -80,7 +80,7 @@ class ModelGeneratorService
         $this->generateAdditionalFiles($data, $results);
     }
 
-    protected function createModelFile(ModelGenerationData $data, array &$results): void
+    public function createModelFile(ModelGenerationData $data, array &$results): void
     {
         // Create the Models directory if it doesn't exist
         $modelsDir = app_path('Models');
@@ -375,7 +375,7 @@ class ModelGeneratorService
         }
 
         if (! empty($traits)) {
-            $replacements['{{ traits }}'] = 'use '.implode(", \n\t\t", $traits).";\n";
+            $replacements['{{ traits }}'] = "\tuse ".implode(", \n\t\t", $traits).";\n";
         } else {
             $replacements['{{ traits }}'] = "//\n";
         }
@@ -386,7 +386,7 @@ class ModelGeneratorService
             ->toArray();
 
         if (! empty($fillableColumns)) {
-            $replacements['{{ fillableArray }}'] = "protected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
+            $replacements['{{ fillableArray }}'] = "\tprotected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
         } else {
             $replacements['{{ fillableArray }}'] = '';
             $replacements["{{ fillableArray }}\n"] = '';
@@ -403,18 +403,15 @@ class ModelGeneratorService
         }
 
         if (! empty($casts)) {
-            $replacements['{{ castsArray }}'] = "protected \$casts = [\n\t\t".implode(",\n\t\t", $casts)."\n\t];\n";
+            $replacements['{{ castsArray }}'] = "\tprotected \$casts = [\n\t\t".implode(",\n\t\t", $casts)."\n\t];\n";
         } else {
-            $replacements['{{ castsArray }}'] = '';
             $replacements["{{ castsArray }}\n"] = '';
-            $replacements["{{ castsArray }}\r\n"] = '';
         }
 
         // Generate timestamps property
         if (! $data->has_timestamps) {
             $replacements['{{ timestampsProperty }}'] = "public \$timestamps = false;\n";
         } else {
-            $replacements['{{ timestampsProperty }}'] = '';
             $replacements["{{ timestampsProperty }}\n"] = '';
             $replacements["{{ timestampsProperty }}\r\n"] = '';
         }
