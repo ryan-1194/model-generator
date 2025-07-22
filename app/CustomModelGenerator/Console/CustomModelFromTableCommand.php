@@ -62,7 +62,6 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
         }
 
         // Get table name - either from option or derive from model name
-        //        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
         $tableName = Str::snake(Str::pluralStudly($modelName));
 
         // Check if table exists
@@ -90,7 +89,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             $this->input->setOption('seed', true);
             $this->input->setOption('controller', true);
             $this->input->setOption('policy', true);
-            $this->input->setOption('resource', true);
+            $this->input->setOption('api', true);
             $this->input->setOption('requests', true);
             $this->input->setOption('repository', true);
             $this->input->setOption('json-resource', true);
@@ -112,7 +111,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             $this->createCustomFormRequests();
         }
 
-        if ($this->option('repository')) {
+        if ($this->repositoryCommandExists() && $this->option('repository')) {
             $this->createRepository();
         }
 
@@ -216,15 +215,21 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             return;
         }
 
-        (new Collection(multiselect('Would you like any of the following?', [
+        $options = [
             'seed' => 'Database Seeder',
             'factory' => 'Factory',
             'requests' => 'Form Requests',
             'policy' => 'Policy',
-            'resource' => 'Resource Controller',
+            'api' => 'API Controller',
             'repository' => 'Repository',
             'json-resource' => 'JSON Resource',
             'soft-deletes' => 'Soft Deletes',
-        ])))->each(fn ($option) => $input->setOption($option, true));
+        ];
+
+        if ($this->repositoryCommandExists()) {
+            $options['repository'] = 'Repository';
+        }
+
+        (new Collection(multiselect('Would you like any of the following?', $options)))->each(fn ($option) => $input->setOption($option, true));
     }
 }

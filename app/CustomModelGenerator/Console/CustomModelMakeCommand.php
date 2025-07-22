@@ -62,13 +62,15 @@ class CustomModelMakeCommand extends ModelMakeCommand
             return false;
         }
 
+        $this->cachedColumns = $this->getColumns();
+
         if ($this->option('all')) {
             $this->input->setOption('factory', true);
             $this->input->setOption('seed', true);
             $this->input->setOption('migration', true);
             $this->input->setOption('controller', true);
             $this->input->setOption('policy', true);
-            $this->input->setOption('resource', true);
+            $this->input->setOption('api', true);
             $this->input->setOption('requests', true);
             $this->input->setOption('repository', true);
             $this->input->setOption('json-resource', true);
@@ -100,7 +102,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
             $this->createSeeder();
         }
 
-        if ($this->option('repository')) {
+        if ($this->repositoryCommandExists() && $this->option('repository')) {
             $this->createRepository();
         }
 
@@ -555,6 +557,11 @@ class CustomModelMakeCommand extends ModelMakeCommand
             return $columns;
         }
 
+        return $this->cachedColumns;
+    }
+
+    protected function getColumns()
+    {
         // Interactive column input using Laravel Prompts when columns option is empty
         $columns = [];
 
@@ -598,9 +605,6 @@ class CustomModelMakeCommand extends ModelMakeCommand
                 info("Added column: {$columnName} ({$dataType})");
             }
         }
-
-        // Cache the result
-        $this->cachedColumns = $columns;
 
         return $columns;
     }
@@ -649,13 +653,15 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function getOptions(): array
     {
-        return array_merge(parent::getOptions(), [
+        $options = [
             ['columns', null, InputOption::VALUE_OPTIONAL, 'JSON string of column definitions'],
             ['soft-deletes', null, InputOption::VALUE_NONE, 'Add soft deletes to the model'],
             ['no-timestamps', null, InputOption::VALUE_NONE, 'Disable timestamps on the model'],
-            ['repository', null, InputOption::VALUE_NONE, 'Create a repository for the model'],
             ['json-resource', null, InputOption::VALUE_NONE, 'Create a JSON resource for the model'],
-        ]);
+            ['repository', null, InputOption::VALUE_NONE, 'Create a repository for the model'],
+        ];
+
+        return array_merge(parent::getOptions(), $options);
     }
 
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)
@@ -664,16 +670,31 @@ class CustomModelMakeCommand extends ModelMakeCommand
             return;
         }
 
-        (new Collection(multiselect('Would you like any of the following?', [
+        $options = [
             'seed' => 'Database Seeder',
             'factory' => 'Factory',
             'requests' => 'Form Requests',
             'migration' => 'Migration',
             'policy' => 'Policy',
-            'resource' => 'Resource Controller',
-            'repository' => 'Repository',
+            'api' => 'API Controller',
             'json-resource' => 'JSON Resource',
             'soft-deletes' => 'Soft Deletes',
-        ])))->each(fn ($option) => $input->setOption($option, true));
+        ];
+
+        if ($this->repositoryCommandExists()) {
+            $options['repository'] = 'Repository';
+        }
+
+        (new Collection(multiselect('Would you like any of the following?', $options)))->each(fn ($option) => $input->setOption($option, true));
+    }
+
+    protected function commandExists(string $command): bool
+    {
+        return collect(\Artisan::all())->has($command);
+    }
+
+    protected function repositoryCommandExists(): bool
+    {
+        return $this->commandExists('make:repository');
     }
 }
