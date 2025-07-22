@@ -3,14 +3,11 @@
 namespace App\CustomModelGenerator\Console;
 
 use App\Services\TypeMappingService;
-use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 use function Laravel\Prompts\error;
@@ -65,7 +62,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
         }
 
         // Get table name - either from option or derive from model name
-//        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
+        //        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
         $tableName = Str::snake(Str::pluralStudly($modelName));
 
         // Check if table exists
