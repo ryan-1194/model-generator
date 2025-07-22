@@ -9,6 +9,7 @@ class {{ class }} extends Model
 {
 {{ traits }}
 {{ fillableArray }}
-{{ castsArray }}
+{{ hiddenArray }}
+{{ castsMethod }}
 {{ timestampsProperty }}
 }
