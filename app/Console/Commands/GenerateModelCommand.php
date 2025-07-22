@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\ModelGeneratorService;
+use App\Services\TypeMappingService;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Console\PromptsForMissingInput;
 use Illuminate\Support\Str;
@@ -25,20 +26,17 @@ class GenerateModelCommand extends Command implements PromptsForMissingInput
     protected $signature = 'generate:model
                             {name : The name of the model}
                             {--table= : The name of the database table}
-                            {--migration : Generate migration file}
-                            {--no-migration : Skip migration generation}
-                            {--factory : Generate factory file}
-                            {--no-factory : Skip factory generation}
-                            {--policy : Generate policy file}
-                            {--no-policy : Skip policy generation}
-                            {--resource-controller : Generate resource controller}
-                            {--json-resource : Generate JSON resource}
-                            {--api-controller : Generate API controller}
-                            {--form-request : Generate form request}
-                            {--repository : Generate repository}
-                            {--timestamps : Include timestamps}
-                            {--no-timestamps : Skip timestamps}
-                            {--soft-deletes : Include soft deletes}
+                            {--a|all : Generate all available files (model, migration, factory, policy, resource controller)}
+                            {--m|migration : Generate migration file}
+                            {--f|factory : Generate factory file}
+                            {--p|policy : Generate policy file}
+                            {--r|resource-controller : Generate resource controller}
+                            {--j|json-resource : Generate JSON resource}
+                            {--c|api-controller : Generate API controller}
+                            {--x|form-request : Generate form request}
+                            {--e|repository : Generate repository}
+                            {--t|timestamps : Include timestamps}
+                            {--s|soft-deletes : Include soft deletes}
                             {--columns= : JSON string of columns definition}';
 
     /**
@@ -46,7 +44,7 @@ class GenerateModelCommand extends Command implements PromptsForMissingInput
      *
      * @var string
      */
-    protected $description = 'Generate a model with related files using ModelGeneratorService';
+    protected $description = 'Generate a model with related files using ModelGeneratorService. Use --all or specific flags like -m (migration), -f (factory), -p (policy), etc.';
 
     /**
      * Execute the console command.
@@ -102,16 +100,16 @@ class GenerateModelCommand extends Command implements PromptsForMissingInput
         $formData = [
             'model_name' => $modelName,
             'table_name' => $this->option('table') ?: Str::snake(Str::plural($modelName)),
-            'generate_migration' => $this->shouldGenerate('migration'),
-            'generate_factory' => $this->shouldGenerate('factory'),
-            'generate_policy' => $this->shouldGenerate('policy'),
-            'generate_resource_controller' => $this->option('resource-controller'),
-            'generate_json_resource' => $this->option('json-resource'),
-            'generate_api_controller' => $this->option('api-controller'),
-            'generate_form_request' => $this->option('form-request'),
-            'generate_repository' => $this->option('repository'),
+            'generate_migration' => $this->shouldGenerate('migration', false),
+            'generate_factory' => $this->shouldGenerate('factory', false),
+            'generate_policy' => $this->shouldGenerate('policy', false),
+            'generate_resource_controller' => $this->shouldGenerate('resource-controller', false),
+            'generate_json_resource' => $this->shouldGenerate('json-resource', false),
+            'generate_api_controller' => $this->shouldGenerate('api-controller', false),
+            'generate_form_request' => $this->shouldGenerate('form-request', false),
+            'generate_repository' => $this->shouldGenerate('repository', false),
             'has_timestamps' => $this->shouldGenerate('timestamps', true),
-            'has_soft_deletes' => $this->option('soft-deletes'),
+            'has_soft_deletes' => $this->shouldGenerate('soft-deletes', false),
             'columns' => $this->parseColumns(),
         ];
 
@@ -121,14 +119,19 @@ class GenerateModelCommand extends Command implements PromptsForMissingInput
     /**
      * Determine if a feature should be generated based on options
      */
-    protected function shouldGenerate(string $feature, bool $default = true): bool
+    protected function shouldGenerate(string $feature, bool $default = false): bool
     {
-        if ($this->option($feature)) {
-            return true;
+        // If --all is specified, generate all main components
+        if ($this->option('all')) {
+            $allComponents = ['migration', 'factory', 'policy', 'resource-controller'];
+            if (in_array($feature, $allComponents)) {
+                return true;
+            }
         }
 
-        if ($this->option("no-{$feature}")) {
-            return false;
+        // Check if specific feature flag is set
+        if ($this->option($feature)) {
+            return true;
         }
 
         return $default;
@@ -169,19 +172,7 @@ class GenerateModelCommand extends Command implements PromptsForMissingInput
 
                 $dataType = select(
                     label: 'Data type',
-                    options: [
-                        'string' => 'String (VARCHAR)',
-                        'text' => 'Text (TEXT)',
-                        'integer' => 'Integer (INT)',
-                        'bigInteger' => 'Big Integer (BIGINT)',
-                        'boolean' => 'Boolean (TINYINT)',
-                        'date' => 'Date (DATE)',
-                        'datetime' => 'DateTime (DATETIME)',
-                        'timestamp' => 'Timestamp (TIMESTAMP)',
-                        'decimal' => 'Decimal (DECIMAL)',
-                        'float' => 'Float (FLOAT)',
-                        'json' => 'JSON (JSON)',
-                    ],
+                    options: TypeMappingService::getDataTypeOptions(),
                     default: 'string'
                 );
 

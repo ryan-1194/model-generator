@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\ColumnData;
 use App\DTOs\ModelGenerationData;
 use App\Models\ModelDefinition;
+use App\Services\TypeMappingService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -70,14 +71,16 @@ class ModelGeneratorService
 
     protected function generateBaseFiles(ModelGenerationData $data, array &$results): void
     {
-        // Create model file directly using enhanced stub
-        $this->createModelFile($data, $results);
+        // Create model file directly using enhanced stub (only if generate_model is true)
+        if ($data->generate_model) {
+            $this->createModelFile($data, $results);
+        }
 
         // Generate additional files
         $this->generateAdditionalFiles($data, $results);
     }
 
-    protected function createModelFile(ModelGenerationData $data, array &$results): void
+    public function createModelFile(ModelGenerationData $data, array &$results): void
     {
         // Create the Models directory if it doesn't exist
         $modelsDir = app_path('Models');
@@ -289,9 +292,11 @@ class ModelGeneratorService
 
         $data = $this->normalizeInput($input);
 
-        $previews = [
-            'model_preview' => $this->generateModelPreview($data),
-        ];
+        $previews = [];
+
+        if ($data->generate_model) {
+            $previews['model_preview'] = $this->generateModelPreview($data);
+        }
 
         if ($data->generate_migration) {
             $previews['migration_preview'] = $this->generateMigrationPreview($data);
@@ -370,7 +375,7 @@ class ModelGeneratorService
         }
 
         if (! empty($traits)) {
-            $replacements['{{ traits }}'] = 'use '.implode(", \n\t\t", $traits).";\n";
+            $replacements['{{ traits }}'] = "\tuse ".implode(", \n\t\t", $traits).";\n";
         } else {
             $replacements['{{ traits }}'] = "//\n";
         }
@@ -381,7 +386,7 @@ class ModelGeneratorService
             ->toArray();
 
         if (! empty($fillableColumns)) {
-            $replacements['{{ fillableArray }}'] = "protected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
+            $replacements['{{ fillableArray }}'] = "\tprotected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
         } else {
             $replacements['{{ fillableArray }}'] = '';
             $replacements["{{ fillableArray }}\n"] = '';
@@ -391,25 +396,22 @@ class ModelGeneratorService
         // Generate casts array
         $casts = [];
         foreach ($data->getNonIdColumns() as $column) {
-            $castType = $this->getCastTypeFromDataType($column->data_type);
+            $castType = TypeMappingService::getCastTypeFromDataType($column->data_type);
             if ($castType) {
                 $casts[] = "'{$column->column_name}' => '{$castType}'";
             }
         }
 
         if (! empty($casts)) {
-            $replacements['{{ castsArray }}'] = "protected \$casts = [\n\t\t".implode(",\n\t\t", $casts)."\n\t];\n";
+            $replacements['{{ castsArray }}'] = "\tprotected \$casts = [\n\t\t".implode(",\n\t\t", $casts)."\n\t];\n";
         } else {
-            $replacements['{{ castsArray }}'] = '';
             $replacements["{{ castsArray }}\n"] = '';
-            $replacements["{{ castsArray }}\r\n"] = '';
         }
 
         // Generate timestamps property
         if (! $data->has_timestamps) {
             $replacements['{{ timestampsProperty }}'] = "public \$timestamps = false;\n";
         } else {
-            $replacements['{{ timestampsProperty }}'] = '';
             $replacements["{{ timestampsProperty }}\n"] = '';
             $replacements["{{ timestampsProperty }}\r\n"] = '';
         }
@@ -662,20 +664,4 @@ class ModelGeneratorService
         return str_replace(array_keys($replacements), array_values($replacements), $stub);
     }
 
-    /**
-     * Get the appropriate cast type based on the data type
-     */
-    protected function getCastTypeFromDataType(string $dataType): ?string
-    {
-        return match ($dataType) {
-            'string', 'text' => 'string',
-            'integer', 'bigInteger' => 'integer',
-            'boolean' => 'boolean',
-            'date' => 'date',
-            'datetime', 'timestamp' => 'datetime',
-            'decimal', 'float' => 'decimal:2',
-            'json' => 'array',
-            default => null,
-        };
-    }
 }

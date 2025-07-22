@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\CustomModelGenerator\Console\CustomModelMakeCommand;
+use App\CustomModelGenerator\Console\CustomModelFromTableCommand;
 use App\Console\Commands\GenerateModelCommand;
+use App\ModelGenerator\Console\GenerateCustomModel;
 use App\Repositories\Console\GenerateRepository;
 use App\Repositories\Console\GenerateRepositoryInterface;
 use Illuminate\Support\Facades\File;
@@ -23,13 +26,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-//        if ($this->app->runningInConsole()) {
-//            $this->commands([
-//                GenerateRepository::class,
-//                GenerateRepositoryInterface::class,
-//            ]);
-//        }
-
         $this->registerRepositories();
     }
 
@@ -42,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
 
         foreach ($repositoryFiles as $repositoryFile) {
             $className = pathinfo($repositoryFile, PATHINFO_FILENAME);
-            $class = $namespace . $className;
+            $class = $namespace.$className;
 
             if (class_exists($class) && ! ($reflector = new \ReflectionClass($class))->isAbstract()) {
                 $interfaces = $reflector->getInterfaces();
@@ -58,5 +54,8 @@ class AppServiceProvider extends ServiceProvider
         $this->commands(GenerateRepository::class);
         $this->commands(GenerateRepositoryInterface::class);
         $this->commands(GenerateModelCommand::class);
+        $this->commands(GenerateCustomModel::class);
+        $this->commands(CustomModelMakeCommand::class);
+        $this->commands(CustomModelFromTableCommand::class);
     }
 }

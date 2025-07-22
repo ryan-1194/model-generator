@@ -11,6 +11,7 @@ class ModelGenerationData
     public function __construct(
         public string $model_name,
         public ?string $table_name = null,
+        public bool $generate_model = true,
         public bool $generate_migration = true,
         public bool $has_timestamps = true,
         public bool $has_soft_deletes = false,
@@ -45,6 +46,7 @@ class ModelGenerationData
         return new self(
             model_name: $data['model_name'],
             table_name: $data['table_name'] ?? null,
+            generate_model: $data['generate_model'] ?? true,
             generate_migration: $data['generate_migration'] ?? true,
             has_timestamps: $data['has_timestamps'] ?? true,
             has_soft_deletes: $data['has_soft_deletes'] ?? false,
@@ -80,6 +82,7 @@ class ModelGenerationData
         return new self(
             model_name: $modelDefinition->model_name,
             table_name: $modelDefinition->table_name,
+            generate_model: $modelDefinition->generate_model ?? true,
             generate_migration: $modelDefinition->generate_migration,
             has_timestamps: $modelDefinition->has_timestamps,
             has_soft_deletes: $modelDefinition->has_soft_deletes,
