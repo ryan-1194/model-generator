@@ -17,7 +17,7 @@ use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\multiselect;
 
-class CustomModelFromTableCommand extends ModelMakeCommand
+class CustomModelFromTableCommand extends CustomModelMakeCommand
 {
     /**
      * The name and signature of the console command.
@@ -65,7 +65,8 @@ class CustomModelFromTableCommand extends ModelMakeCommand
         }
 
         // Get table name - either from option or derive from model name
-        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
+//        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
+        $tableName = Str::snake(Str::pluralStudly($modelName));
 
         // Check if table exists
         if (! Schema::hasTable($tableName)) {
@@ -90,7 +91,6 @@ class CustomModelFromTableCommand extends ModelMakeCommand
         if ($this->option('all')) {
             $this->input->setOption('factory', true);
             $this->input->setOption('seed', true);
-            $this->input->setOption('migration', true);
             $this->input->setOption('controller', true);
             $this->input->setOption('policy', true);
             $this->input->setOption('resource', true);
@@ -105,11 +105,6 @@ class CustomModelFromTableCommand extends ModelMakeCommand
         // Handle other options that parent would normally handle
         if ($this->option('factory')) {
             $this->createFactory();
-        }
-
-        // Create custom migration if requested (our custom implementation)
-        if ($this->option('migration')) {
-            $this->createCustomMigration();
         }
 
         if ($this->option('controller') || $this->option('resource') || $this->option('api')) {
@@ -218,406 +213,6 @@ class CustomModelFromTableCommand extends ModelMakeCommand
         }
     }
 
-    /**
-     * Create custom model file with enhanced features
-     */
-    protected function createCustomModelFile(): void
-    {
-        $name = $this->qualifyClass($this->getNameInput());
-        $path = $this->getPath($name);
-
-        $this->makeDirectory($path);
-
-        $content = $this->generateCustomModelContent();
-        File::put($path, $content);
-
-        $this->info("Model created: {$path}");
-    }
-
-    /**
-     * Generate custom model content with enhanced features
-     */
-    protected function generateCustomModelContent(): string
-    {
-        $stub = File::get($this->getCustomStubPath());
-        $modelName = $this->getNameInput();
-        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
-
-        $fillableColumns = $this->parseFillableColumns();
-        $castsArray = $this->generateCastsArray();
-
-        // Build imports
-        $imports = '';
-        if ($this->option('soft-deletes')) {
-            $imports .= "use Illuminate\Database\Eloquent\SoftDeletes;\n";
-        }
-
-        // Build traits
-        $traits = '';
-        if ($this->option('soft-deletes')) {
-            $traits .= "    use SoftDeletes;\n\n";
-        }
-
-        // Build fillable array
-        $fillableArray = "    protected \$fillable = {$fillableColumns};\n\n";
-
-        // Build casts array
-        $castsArray = "    protected \$casts = {$castsArray};\n\n";
-
-        // Build timestamps property
-        $timestampsProperty = '';
-        if ($this->option('no-timestamps')) {
-            $timestampsProperty = "    public \$timestamps = false;\n\n";
-        }
-
-        // Build table property
-        $tableProperty = "    protected \$table = '{$tableName}';\n\n";
-
-        $replacements = [
-            '{{ namespace }}' => $this->getDefaultNamespace(trim($this->rootNamespace(), '\\')),
-            '{{ class }}' => $modelName,
-            '{{ imports }}' => $imports,
-            '{{ traits }}' => $traits,
-            '{{ fillableArray }}' => $fillableArray,
-            '{{ castsArray }}' => $castsArray,
-            '{{ timestampsProperty }}' => $timestampsProperty,
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
-    }
-
-    /**
-     * Create custom migration file
-     */
-    protected function createCustomMigration(): void
-    {
-        $modelName = $this->getNameInput();
-        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
-
-        $migrationName = 'create_'.$tableName.'_table';
-        $migrationPath = database_path('migrations/'.date('Y_m_d_His').'_'.$migrationName.'.php');
-
-        $content = $this->generateCustomMigrationContent($tableName);
-        File::put($migrationPath, $content);
-
-        $this->info("Migration created: {$migrationPath}");
-    }
-
-    /**
-     * Generate custom migration content
-     */
-    protected function generateCustomMigrationContent(string $table): string
-    {
-        $stub = File::get($this->getCustomMigrationStubPath());
-        $columns = $this->parseColumnsFromOption();
-
-        $columnDefinitions = '';
-        foreach ($columns as $column) {
-            $columnDefinitions .= '            '.$this->generateColumnDefinition($column)."\n";
-        }
-
-        $replacements = [
-            '{{ class }}' => 'Create'.Str::studly($table).'Table',
-            '{{ table }}' => $table,
-            '{{ columns }}' => rtrim($columnDefinitions),
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
-    }
-
-    /**
-     * Create custom form requests
-     */
-    protected function createCustomFormRequests(): void
-    {
-        $modelName = $this->getNameInput();
-        $this->createCustomFormRequest('Store'.$modelName.'Request');
-        $this->createCustomFormRequest('Update'.$modelName.'Request');
-    }
-
-    /**
-     * Create a custom form request
-     */
-    protected function createCustomFormRequest(string $requestName): void
-    {
-        $path = app_path('Http/Requests/'.$requestName.'.php');
-        $this->makeDirectory($path);
-
-        $content = $this->generateCustomFormRequestContent($requestName);
-        File::put($path, $content);
-
-        $this->info("Form request created: {$path}");
-    }
-
-    /**
-     * Generate custom form request content
-     */
-    protected function generateCustomFormRequestContent(string $requestName): string
-    {
-        $stub = File::get($this->getCustomRequestStubPath());
-        $columns = $this->parseColumnsFromOption();
-
-        $rules = [];
-        foreach ($columns as $column) {
-            $columnRules = [];
-
-            if (! $column['nullable']) {
-                $columnRules[] = 'required';
-            } else {
-                $columnRules[] = 'nullable';
-            }
-
-            switch ($column['data_type']) {
-                case 'string':
-                    $columnRules[] = 'string';
-                    $columnRules[] = 'max:255';
-                    break;
-                case 'text':
-                    $columnRules[] = 'string';
-                    break;
-                case 'integer':
-                case 'bigInteger':
-                    $columnRules[] = 'integer';
-                    break;
-                case 'boolean':
-                    $columnRules[] = 'boolean';
-                    break;
-                case 'date':
-                    $columnRules[] = 'date';
-                    break;
-                case 'datetime':
-                case 'timestamp':
-                    $columnRules[] = 'date';
-                    break;
-                case 'decimal':
-                case 'float':
-                    $columnRules[] = 'numeric';
-                    break;
-                case 'json':
-                    $columnRules[] = 'array';
-                    break;
-            }
-
-            if ($column['unique']) {
-                $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($this->getNameInput()));
-                $columnRules[] = "unique:{$tableName},{$column['column_name']}";
-            }
-
-            $rules[] = "            '{$column['column_name']}' => '".implode('|', $columnRules)."',";
-        }
-
-        $rulesString = implode("\n", $rules);
-
-        $replacements = [
-            '{{ namespace }}' => 'App\Http\Requests',
-            '{{ class }}' => $requestName,
-            '{{ validationRules }}' => $rulesString,
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
-    }
-
-    /**
-     * Generate column definition for migration
-     */
-    protected function generateColumnDefinition(array $column): string
-    {
-        $definition = "\$table->{$column['data_type']}('{$column['column_name']}')";
-
-        if ($column['nullable']) {
-            $definition .= '->nullable()';
-        }
-
-        if ($column['unique']) {
-            $definition .= '->unique()';
-        }
-
-        if (! empty($column['default_value'])) {
-            $defaultValue = is_numeric($column['default_value'])
-                ? $column['default_value']
-                : "'{$column['default_value']}'";
-            $definition .= "->default({$defaultValue})";
-        }
-
-        $definition .= ';';
-
-        return $definition;
-    }
-
-    /**
-     * Create repository for the model
-     */
-    protected function createRepository(): void
-    {
-        $modelName = $this->getNameInput();
-        $repositoryName = $modelName.'Repository';
-        $interfaceName = $modelName.'RepositoryInterface';
-
-        // Create interface
-        $interfacePath = app_path('Repositories/'.$interfaceName.'.php');
-        $this->makeDirectory($interfacePath);
-
-        $interfaceContent = "<?php\n\nnamespace App\\Repositories;\n\ninterface {$interfaceName}\n{\n    //\n}\n";
-        File::put($interfacePath, $interfaceContent);
-
-        // Create repository
-        $repositoryPath = app_path('Repositories/'.$repositoryName.'.php');
-        $repositoryContent = "<?php\n\nnamespace App\\Repositories;\n\nuse App\\Models\\{$modelName};\n\nclass {$repositoryName} implements {$interfaceName}\n{\n    protected \$model;\n\n    public function __construct({$modelName} \$model)\n    {\n        \$this->model = \$model;\n    }\n\n    //\n}\n";
-        File::put($repositoryPath, $repositoryContent);
-
-        $this->info("Repository created: {$repositoryPath}");
-        $this->info("Repository interface created: {$interfacePath}");
-    }
-
-    /**
-     * Create JSON resource for the model
-     */
-    protected function createJsonResource(): void
-    {
-        $modelName = $this->getNameInput();
-        $resourceName = $modelName.'Resource';
-        $resourcePath = app_path('Http/Resources/'.$resourceName.'.php');
-
-        $this->makeDirectory($resourcePath);
-
-        $content = $this->generateCustomJsonResourceContent($resourceName);
-        File::put($resourcePath, $content);
-
-        $this->info("JSON resource created: {$resourcePath}");
-    }
-
-    /**
-     * Generate custom JSON resource content
-     */
-    protected function generateCustomJsonResourceContent(string $resourceName): string
-    {
-        $stub = File::get($this->getCustomResourceStubPath());
-        $columns = $this->parseColumnsFromOption();
-
-        $attributes = [];
-        foreach ($columns as $column) {
-            $attributes[] = "            '{$column['column_name']}' => \$this->{$column['column_name']},";
-        }
-
-        $attributesString = implode("\n", $attributes);
-
-        $replacements = [
-            '{{ namespace }}' => 'App\Http\Resources',
-            '{{ class }}' => $resourceName,
-            '{{ attributes }}' => $attributesString,
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
-    }
-
-    /**
-     * Get custom stub path for JSON resource
-     */
-    protected function getCustomResourceStubPath(): string
-    {
-        $customPath = app_path('CustomModelGenerator/stubs/resource.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
-        }
-
-        throw new \RuntimeException('Enhanced resource stub file not found at: '.$customPath);
-    }
-
-    /**
-     * Parse fillable columns from cached columns
-     */
-    protected function parseFillableColumns(): string
-    {
-        $columns = $this->parseColumnsFromOption();
-        $fillableColumns = array_filter($columns, fn ($column) => $column['is_fillable']);
-        $fillableNames = array_map(fn ($column) => "'{$column['column_name']}'", $fillableColumns);
-
-        return '['.implode(', ', $fillableNames).']';
-    }
-
-    /**
-     * Generate casts array based on column data types
-     */
-    protected function generateCastsArray(): string
-    {
-        $columns = $this->parseColumnsFromOption();
-        $casts = [];
-
-        foreach ($columns as $column) {
-            $castType = TypeMappingService::getCastTypeFromDataType($column['data_type']);
-            if ($castType) {
-                $casts[] = "'{$column['column_name']}' => '{$castType}'";
-            }
-        }
-
-        if (empty($casts)) {
-            return '[]';
-        }
-
-        return "[\n        ".implode(",\n        ", $casts)."\n    ]";
-    }
-
-    /**
-     * Parse columns from cached columns (from database)
-     */
-    protected function parseColumnsFromOption(): array
-    {
-        return $this->cachedColumns ?? [];
-    }
-
-    /**
-     * Get custom stub path for model
-     */
-    protected function getCustomStubPath(): string
-    {
-        $customPath = app_path('CustomModelGenerator/stubs/model.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
-        }
-
-        throw new \RuntimeException('Enhanced model stub file not found at: '.$customPath);
-    }
-
-    /**
-     * Get custom stub path for migration
-     */
-    protected function getCustomMigrationStubPath(): string
-    {
-        $customPath = app_path('CustomModelGenerator/stubs/migration.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
-        }
-
-        throw new \RuntimeException('Enhanced migration stub file not found at: '.$customPath);
-    }
-
-    /**
-     * Get custom stub path for request
-     */
-    protected function getCustomRequestStubPath(): string
-    {
-        $customPath = app_path('CustomModelGenerator/stubs/request.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
-        }
-
-        throw new \RuntimeException('Enhanced request stub file not found at: '.$customPath);
-    }
-
-    /**
-     * Get the console command options.
-     */
-    protected function getOptions(): array
-    {
-        return array_merge(parent::getOptions(), [
-            ['table', null, InputOption::VALUE_OPTIONAL, 'The name of the database table to read columns from'],
-            ['soft-deletes', null, InputOption::VALUE_NONE, 'Add soft deletes to the model'],
-            ['no-timestamps', null, InputOption::VALUE_NONE, 'Disable timestamps on the model'],
-            ['repository', null, InputOption::VALUE_NONE, 'Create a repository for the model'],
-            ['json-resource', null, InputOption::VALUE_NONE, 'Create a JSON resource for the model'],
-        ]);
-    }
-
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)
     {
         if ($this->isReservedName($this->getNameInput()) || $this->didReceiveOptions($input)) {
@@ -628,11 +223,11 @@ class CustomModelFromTableCommand extends ModelMakeCommand
             'seed' => 'Database Seeder',
             'factory' => 'Factory',
             'requests' => 'Form Requests',
-            'migration' => 'Migration',
             'policy' => 'Policy',
             'resource' => 'Resource Controller',
             'repository' => 'Repository',
             'json-resource' => 'JSON Resource',
+            'soft-deletes' => 'Soft Deletes',
         ])))->each(fn ($option) => $input->setOption($option, true));
     }
 }

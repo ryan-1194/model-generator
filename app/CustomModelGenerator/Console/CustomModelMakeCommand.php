@@ -418,15 +418,12 @@ class CustomModelMakeCommand extends ModelMakeCommand
         $repositoryName = "{$modelName}Repository";
         $repositoryInterfaceName = "{$modelName}RepositoryInterface";
 
-        // Create repository using Artisan command
+        // Create a repository using Artisan command
         $this->call('make:repository', [
             'model' => $modelName,
             'name' => $repositoryName,
             'interface' => $repositoryInterfaceName,
         ]);
-
-        $this->components->info(sprintf('%s [%s] created successfully.', 'Repository', $repositoryName));
-        $this->components->info(sprintf('%s [%s] created successfully.', 'Repository Interface', $repositoryInterfaceName));
     }
 
     /**
@@ -676,6 +673,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
             'resource' => 'Resource Controller',
             'repository' => 'Repository',
             'json-resource' => 'JSON Resource',
+            'soft-deletes' => 'Soft Deletes',
         ])))->each(fn ($option) => $input->setOption($option, true));
     }
 }

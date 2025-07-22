@@ -482,7 +482,6 @@ The command includes comprehensive error handling:
 ## Integration with Laravel Features
 
 ### Eloquent Features
-- Automatic relationship detection
 - Soft delete integration
 - Timestamp management
 - Mass assignment protection
