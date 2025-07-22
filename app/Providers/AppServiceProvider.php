@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Cache\Console\GenerateCacheCommand;
 use App\CustomModelGenerator\Console\CustomModelMakeCommand;
 use App\CustomModelGenerator\Console\CustomModelFromTableCommand;
 use App\Console\Commands\GenerateModelCommand;
@@ -57,5 +58,6 @@ class AppServiceProvider extends ServiceProvider
         $this->commands(GenerateCustomModel::class);
         $this->commands(CustomModelMakeCommand::class);
         $this->commands(CustomModelFromTableCommand::class);
+        $this->commands(GenerateCacheCommand::class);
     }
 }
