@@ -173,13 +173,26 @@ class GenerateCacheCommand extends GeneratorCommand
     {
         $repositoryInterface = $this->qualifyRepositoryInterface($modelName);
 
-        if (! interface_exists($repositoryInterface)) {
+        // Check if repository interface exists both by interface_exists and by file existence
+        // This handles cases where the interface was just created but interface_exists might not reflect it yet
+        $interfaceExists = interface_exists($repositoryInterface) || $this->repositoryInterfaceFileExists($repositoryInterface);
+
+        if (! $interfaceExists) {
             if (confirm("A {$repositoryInterface} repository does not exist. Do you want to generate it?")) {
                 $this->call('make:repository', ['model' => $modelName]);
             } else {
                 throw new InvalidArgumentException("Repository {$repositoryInterface} does not exist.");
             }
         }
+    }
+
+    protected function repositoryInterfaceFileExists(string $repositoryInterface): bool
+    {
+        // Extract the interface name from the fully qualified class name
+        $interfaceName = class_basename($repositoryInterface);
+        $interfacePath = app_path("Repositories/Contracts/{$interfaceName}.php");
+
+        return file_exists($interfacePath);
     }
 
     protected function qualifyRepositoryInterface(string $modelName): string

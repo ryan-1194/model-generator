@@ -93,6 +93,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             $this->input->setOption('requests', true);
             $this->input->setOption('repository', true);
             $this->input->setOption('json-resource', true);
+            $this->input->setOption('cache', true);
         }
 
         // Create custom model file with enhanced features
@@ -113,6 +114,10 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
 
         if ($this->repositoryCommandExists() && $this->option('repository')) {
             $this->createRepository();
+        }
+
+        if ($this->cacheCommandExists() && $this->option('cache')) {
+            $this->createCache();
         }
 
         if ($this->option('json-resource')) {
@@ -221,13 +226,16 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             'requests' => 'Form Requests',
             'policy' => 'Policy',
             'api' => 'API Controller',
-            'repository' => 'Repository',
             'json-resource' => 'JSON Resource',
             'soft-deletes' => 'Soft Deletes',
         ];
 
         if ($this->repositoryCommandExists()) {
             $options['repository'] = 'Repository';
+        }
+
+        if ($this->cacheCommandExists()) {
+            $options['cache'] = 'Cache';
         }
 
         (new Collection(multiselect('Would you like any of the following?', $options)))->each(fn ($option) => $input->setOption($option, true));

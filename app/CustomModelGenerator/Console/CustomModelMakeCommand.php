@@ -74,6 +74,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
             $this->input->setOption('requests', true);
             $this->input->setOption('repository', true);
             $this->input->setOption('json-resource', true);
+            $this->input->setOption('cache', true);
         }
 
         // Create custom model file with enhanced features
@@ -104,6 +105,10 @@ class CustomModelMakeCommand extends ModelMakeCommand
 
         if ($this->repositoryCommandExists() && $this->option('repository')) {
             $this->createRepository();
+        }
+
+        if ($this->cacheCommandExists() && $this->option('cache')) {
+            $this->createCache();
         }
 
         if ($this->option('json-resource')) {
@@ -176,25 +181,37 @@ class CustomModelMakeCommand extends ModelMakeCommand
         }
 
         if (! empty($traits)) {
-            $replacements['{{ traits }}'] = "\tuse ".implode(", \n\t\t", $traits).";\n";
+            $factoryAnnotation = '';
+            if (in_array('HasFactory', $traits)) {
+                $factoryAnnotation = "\t/** @use HasFactory<\\Database\\Factories\\{$modelName}Factory> */";
+            }
+            $replacements['{{ traits }}'] = $factoryAnnotation."\n\tuse ".implode(', ', $traits).";\n";
         } else {
             $replacements['{{ traits }}'] = "\t//\n";
         }
 
-        // Generate fillable array from columns option
+        // Generate a fillable array from the column option
         $fillableColumns = $this->parseFillableColumns();
         if (! empty($fillableColumns)) {
-            $replacements['{{ fillableArray }}'] = "\tprotected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
+            $replacements['{{ fillableArray }}'] = "\t/**\n\t * The attributes that are mass assignable.\n\t *\n\t * @var list<string>\n\t */\n\tprotected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
         } else {
-            $replacements['{{ fillableArray }}'] = '';
+            $replacements["{{ fillableArray }}\n"] = '';
         }
 
-        // Generate casts array
+        // Generate hidden array (for sensitive fields like password, remember_token)
+        $hiddenColumns = $this->parseHiddenColumns();
+        if (! empty($hiddenColumns)) {
+            $replacements['{{ hiddenArray }}'] = "\t/**\n\t * The attributes that should be hidden for serialization.\n\t *\n\t * @var list<string>\n\t */\n\tprotected \$hidden = [\n\t\t'".implode("',\n\t\t'", $hiddenColumns)."',\n\t];\n";
+        } else {
+            $replacements["{{ hiddenArray }}\n"] = '';
+        }
+
+        // Generate casts method
         $casts = $this->generateCastsArray();
         if (! empty($casts)) {
-            $replacements['{{ castsArray }}'] = "\tprotected \$casts = [\n\t\t".implode(",\n\t\t", $casts)."\n\t];\n";
+            $replacements['{{ castsMethod }}'] = "\t/**\n\t * Get the attributes that should be cast.\n\t *\n\t * @return array<string, string>\n\t */\n\tprotected function casts(): array\n\t{\n\t\treturn [\n\t\t\t".implode(",\n\t\t\t", $casts).",\n\t\t];\n\t}\n";
         } else {
-            $replacements["{{ castsArray }}\n"] = '';
+            $replacements["{{ castsMethod }}\n"] = '';
         }
 
         // Generate timestamps property
@@ -208,7 +225,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
     }
 
     /**
-     * Create custom migration file
+     * Create the custom migration file
      */
     protected function createCustomMigration(): void
     {
@@ -429,6 +446,19 @@ class CustomModelMakeCommand extends ModelMakeCommand
     }
 
     /**
+     * Create a cache class for the model
+     */
+    protected function createCache(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+
+        // Create a cache using Artisan command
+        $this->call('make:cache', [
+            'model' => $modelName,
+        ]);
+    }
+
+    /**
      * Create a JSON resource for the model
      */
     protected function createJsonResource(): void
@@ -512,6 +542,30 @@ class CustomModelMakeCommand extends ModelMakeCommand
         $columns = $this->parseColumnsFromOption();
 
         return array_column(array_filter($columns, fn ($col) => $col['is_fillable']), 'column_name');
+    }
+
+    /**
+     * Parse hidden columns (sensitive fields that should be hidden from serialization)
+     */
+    protected function parseHiddenColumns(): array
+    {
+        $columns = $this->parseColumnsFromOption();
+        $hiddenColumns = [];
+
+        // Auto-detect common sensitive fields
+        $sensitiveFields = ['password', 'remember_token', 'api_token', 'secret', 'token'];
+
+        foreach ($columns as $column) {
+            $columnName = $column['column_name'];
+            if (in_array($columnName, $sensitiveFields) ||
+                str_contains($columnName, 'password') ||
+                str_contains($columnName, 'token') ||
+                str_contains($columnName, 'secret')) {
+                $hiddenColumns[] = $columnName;
+            }
+        }
+
+        return $hiddenColumns;
     }
 
     /**
@@ -659,6 +713,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
             ['no-timestamps', null, InputOption::VALUE_NONE, 'Disable timestamps on the model'],
             ['json-resource', null, InputOption::VALUE_NONE, 'Create a JSON resource for the model'],
             ['repository', null, InputOption::VALUE_NONE, 'Create a repository for the model'],
+            ['cache', null, InputOption::VALUE_NONE, 'Create a cache class for the model'],
         ];
 
         return array_merge(parent::getOptions(), $options);
@@ -685,6 +740,10 @@ class CustomModelMakeCommand extends ModelMakeCommand
             $options['repository'] = 'Repository';
         }
 
+        if ($this->cacheCommandExists()) {
+            $options['cache'] = 'Cache';
+        }
+
         (new Collection(multiselect('Would you like any of the following?', $options)))->each(fn ($option) => $input->setOption($option, true));
     }
 
@@ -696,5 +755,10 @@ class CustomModelMakeCommand extends ModelMakeCommand
     protected function repositoryCommandExists(): bool
     {
         return $this->commandExists('make:repository');
+    }
+
+    protected function cacheCommandExists(): bool
+    {
+        return $this->commandExists('make:cache');
     }
 }
