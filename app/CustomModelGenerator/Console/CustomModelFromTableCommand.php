@@ -3,14 +3,11 @@
 namespace App\CustomModelGenerator\Console;
 
 use App\Services\TypeMappingService;
-use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 use function Laravel\Prompts\error;
@@ -65,7 +62,6 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
         }
 
         // Get table name - either from option or derive from model name
-//        $tableName = $this->option('table') ?: Str::snake(Str::pluralStudly($modelName));
         $tableName = Str::snake(Str::pluralStudly($modelName));
 
         // Check if table exists
@@ -93,7 +89,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             $this->input->setOption('seed', true);
             $this->input->setOption('controller', true);
             $this->input->setOption('policy', true);
-            $this->input->setOption('resource', true);
+            $this->input->setOption('api', true);
             $this->input->setOption('requests', true);
             $this->input->setOption('repository', true);
             $this->input->setOption('json-resource', true);
@@ -115,7 +111,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
             $this->createCustomFormRequests();
         }
 
-        if ($this->option('repository')) {
+        if ($this->repositoryCommandExists() && $this->option('repository')) {
             $this->createRepository();
         }
 
@@ -213,21 +209,27 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
         }
     }
 
-    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)
+    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {
         if ($this->isReservedName($this->getNameInput()) || $this->didReceiveOptions($input)) {
             return;
         }
 
-        (new Collection(multiselect('Would you like any of the following?', [
+        $options = [
             'seed' => 'Database Seeder',
             'factory' => 'Factory',
             'requests' => 'Form Requests',
             'policy' => 'Policy',
-            'resource' => 'Resource Controller',
+            'api' => 'API Controller',
             'repository' => 'Repository',
             'json-resource' => 'JSON Resource',
             'soft-deletes' => 'Soft Deletes',
-        ])))->each(fn ($option) => $input->setOption($option, true));
+        ];
+
+        if ($this->repositoryCommandExists()) {
+            $options['repository'] = 'Repository';
+        }
+
+        (new Collection(multiselect('Would you like any of the following?', $options)))->each(fn ($option) => $input->setOption($option, true));
     }
 }

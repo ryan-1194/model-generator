@@ -1,0 +1,35 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Cache\CacheBase;
+use {{ namespacedModel }} as Model;
+use App\Repositories\Contracts\{{REPOSITORY_INTERFACE}};
+
+/**
+ * @method Model|null fetch()
+ * @method Model fetchOrFail()
+ * @method static Model get()
+ */
+class {{ class }} extends CacheBase
+{
+    public function __construct(protected {{PRIMARY_KEY_TYPE}} ${{PRIMARY_KEY_LOWER}})
+    {
+        parent::__construct("{{CACHE_KEY}}", now()->addHour());
+    }
+
+    protected function cacheMiss()
+    {
+        return app({{REPOSITORY_INTERFACE}}::class)->find($this->{{PRIMARY_KEY_LOWER}});
+    }
+
+    protected function errorModelName(): string
+    {
+        return '{{MODEL_NAME}}';
+    }
+
+    protected function errorModelId(): {{PRIMARY_KEY_TYPE}}
+    {
+        return $this->{{PRIMARY_KEY_LOWER}};
+    }
+}
