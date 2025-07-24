@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories\Console;
+namespace App\CustomModelGenerator\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
@@ -34,7 +34,7 @@ class GenerateRepositoryInterface extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return $this->resolveStubPath('/stubs/interface.stub');
+        return $this->resolveStubPath('/../stubs/interface.stub');
     }
 
     protected function resolveStubPath($stub): string

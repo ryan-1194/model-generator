@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Cache\Console;
+namespace App\CustomModelGenerator\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
@@ -35,7 +35,7 @@ class GenerateCacheCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return $this->resolveStubPath('/stubs/cache.stub');
+        return $this->resolveStubPath('/../stubs/cache.stub');
     }
 
     protected function resolveStubPath($stub): string
@@ -54,6 +54,9 @@ class GenerateCacheCommand extends GeneratorCommand
 
     public function handle()
     {
+        // Generate base files only on first run
+        $this->generateBaseFilesIfNeeded();
+
         // Validate the model exists before doing anything else
         $modelName = $this->getModelInput();
         $this->validateModel($modelName);
@@ -63,6 +66,178 @@ class GenerateCacheCommand extends GeneratorCommand
 
         // Call the parent handle method to continue with normal flow
         return parent::handle();
+    }
+
+    /**
+     * Generate CacheBase and Traits folder only on first run
+     */
+    protected function generateBaseFilesIfNeeded(): void
+    {
+        $cacheBasePath = app_path('Cache/CacheBase.php');
+        $withHelpersPath = app_path('Cache/Traits/WithHelpers.php');
+
+        // Check if base files don't exist (first run)
+        if (!file_exists($cacheBasePath) || !file_exists($withHelpersPath)) {
+            $this->info('Generating base cache files (first run)...');
+
+            // Create Cache directory structure
+            $cacheDir = app_path('Cache');
+            $traitsDir = app_path('Cache/Traits');
+
+            if (!is_dir($cacheDir)) {
+                mkdir($cacheDir, 0755, true);
+            }
+
+            if (!is_dir($traitsDir)) {
+                mkdir($traitsDir, 0755, true);
+            }
+
+            // Generate CacheBase if it doesn't exist
+            if (!file_exists($cacheBasePath)) {
+                $this->generateCacheBase($cacheBasePath);
+            }
+
+            // Generate WithHelpers trait if it doesn't exist
+            if (!file_exists($withHelpersPath)) {
+                $this->generateWithHelpers($withHelpersPath);
+            }
+        }
+    }
+
+    /**
+     * Generate the CacheBase file
+     */
+    protected function generateCacheBase(string $path): void
+    {
+        $cacheBaseContent = $this->getCacheBaseStub();
+        file_put_contents($path, $cacheBaseContent);
+        $this->info('CacheBase created successfully.');
+    }
+
+    /**
+     * Generate the WithHelpers trait file
+     */
+    protected function generateWithHelpers(string $path): void
+    {
+        $withHelpersContent = $this->getWithHelpersStub();
+        file_put_contents($path, $withHelpersContent);
+        $this->info('WithHelpers trait created successfully.');
+    }
+
+    /**
+     * Get the CacheBase stub content
+     */
+    protected function getCacheBaseStub(): string
+    {
+        return '<?php
+
+namespace App\Cache;
+
+use App\Cache\Traits\WithHelpers;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
+
+abstract class CacheBase
+{
+    use WithHelpers;
+
+    protected $key;
+
+    protected $ttl;
+
+    protected $data;
+
+    abstract protected function cacheMiss();
+
+    abstract protected function errorModelName(): string;
+
+    abstract protected function errorModelId(): mixed;
+
+    public function __construct($key, $ttl)
+    {
+        $this->key = $key;
+        $this->ttl = $ttl;
+    }
+
+    public function getKey()
+    {
+        return $this->key;
+    }
+
+    public function invalidate(): bool
+    {
+        return Cache::forget($this->key);
+    }
+
+    public function fetch()
+    {
+        $this->data = Cache::remember($this->getKey(), $this->ttl, function () {
+            return $this->cacheMiss();
+        });
+
+        // only store "non-null" data from cacheMiss()
+        if (is_null($this->data)) {
+            $this->invalidate();
+        }
+
+        return $this->data;
+    }
+
+    public function fetchOrFail()
+    {
+        $result = $this->fetch();
+        if ($result == null) {
+            throw new ModelNotFoundException(\'Unable to retrieve \'.$this->errorModelName().($this->errorModelId() ? (\' \'.$this->errorModelId()) : \'\'));
+        } else {
+            return $result;
+        }
+    }
+
+    public function store($data): bool
+    {
+        return Cache::put($this->getKey(), $data, $this->ttl);
+    }
+
+    public function exists(): bool
+    {
+        return Cache::has($this->getKey());
+    }
+}
+';
+    }
+
+    /**
+     * Get the WithHelpers trait stub content
+     */
+    protected function getWithHelpersStub(): string
+    {
+        return '<?php
+
+namespace App\Cache\Traits;
+
+trait WithHelpers
+{
+    public static function get(...$params)
+    {
+        return (new self(...$params))->fetch();
+    }
+
+    public static function forget(...$params)
+    {
+        return (new self(...$params))->invalidate();
+    }
+
+    public static function getOrFail(...$params)
+    {
+        return (new self(...$params))->fetchOrFail();
+    }
+
+    public static function forgetTags(...$params)
+    {
+        return (new self(...$params))->invalidateTags();
+    }
+}
+';
     }
 
     protected function buildClass($name): array|string
