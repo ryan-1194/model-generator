@@ -2,7 +2,7 @@
 
 namespace App\CustomModelGenerator\Console;
 
-use App\Services\TypeMappingService;
+use App\CustomModelGenerator\Services\TypeMappingService;
 use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -10,7 +10,6 @@ use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
@@ -85,7 +84,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
             $this->createFactory();
         }
 
-        // Create custom migration if requested (our custom implementation)
+        // Migration creation has been moved to a separate command: make:custom-migration
         if ($this->option('migration')) {
             $this->createCustomMigration();
         }
@@ -225,70 +224,6 @@ class CustomModelMakeCommand extends ModelMakeCommand
     }
 
     /**
-     * Create the custom migration file
-     */
-    protected function createCustomMigration(): void
-    {
-        $table = Str::snake(Str::pluralStudly(class_basename($this->argument('name'))));
-
-        // Create the migrations directory if it doesn't exist
-        $migrationsDir = database_path('migrations');
-        if (! File::exists($migrationsDir)) {
-            File::makeDirectory($migrationsDir, 0755, true);
-        }
-
-        // Generate migration content
-        $migrationContent = $this->generateCustomMigrationContent($table);
-
-        // Generate migration filename with timestamp
-        $timestamp = date('Y_m_d_His');
-        $migrationName = 'create_'.$table.'_table';
-        $migrationPath = database_path("migrations/{$timestamp}_{$migrationName}.php");
-
-        // Write the migration file
-        File::put($migrationPath, $migrationContent);
-
-        $this->components->info(sprintf('%s [%s] created successfully.', 'Migration', $migrationPath));
-    }
-
-    /**
-     * Generate custom migration content
-     */
-    protected function generateCustomMigrationContent(string $table): string
-    {
-        // Read the enhanced migration stub file
-        $stubPath = $this->getCustomMigrationStubPath();
-        $stub = File::get($stubPath);
-
-        // Generate column definitions
-        $columnDefinitions = [];
-        $columns = $this->parseColumnsFromOption();
-
-        foreach ($columns as $column) {
-            $definition = $this->generateColumnDefinition($column);
-            $columnDefinitions[] = "            {$definition}";
-        }
-
-        if (! $this->option('no-timestamps')) {
-            $columnDefinitions[] = "\t\t\t\$table->timestamps();";
-        }
-
-        if ($this->option('soft-deletes')) {
-            $columnDefinitions[] = "\t\t\t\$table->softDeletes();";
-        }
-
-        $columnsString = implode("\n", $columnDefinitions);
-
-        // Replace placeholders
-        $replacements = [
-            '{{ table }}' => $table,
-            '{{ columnDefinitions }}' => $columnsString,
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
-    }
-
-    /**
      * Create custom form requests
      */
     protected function createCustomFormRequests(): void
@@ -334,7 +269,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
 
         // Generate validation rules based on columns
         $rules = [];
-        $columns = $this->parseColumnsFromOption();
+        $columns = $this->getColumns();
 
         foreach ($columns as $column) {
             if (! $column['is_fillable']) {
@@ -459,6 +394,41 @@ class CustomModelMakeCommand extends ModelMakeCommand
     }
 
     /**
+     * Create a custom migration for the model
+     */
+    protected function createCustomMigration(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+
+        // Prepare arguments for the migration command
+        $arguments = [
+            'model' => $modelName,
+        ];
+
+        // Prepare options for the migration command
+        $options = [];
+
+        // Pass columns if available
+        if (! empty($this->cachedColumns)) {
+            // Pass columns obtained from interactive prompts
+            $options['--columns'] = json_encode($this->cachedColumns);
+        }
+
+        // Pass soft-deletes option
+        if ($this->option('soft-deletes')) {
+            $options['--soft-deletes'] = true;
+        }
+
+        // Pass no-timestamps option
+        if ($this->option('no-timestamps')) {
+            $options['--no-timestamps'] = true;
+        }
+
+        // Call the custom migration command
+        $this->call('make:custom-migration', array_merge($arguments, $options));
+    }
+
+    /**
      * Create a JSON resource for the model
      */
     protected function createJsonResource(): void
@@ -495,7 +465,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
         $resourceFields = [];
         $resourceFields[] = "\t\t\t'id' => \$this->id,";
 
-        $columns = $this->parseColumnsFromOption();
+        $columns = $this->getColumns();
         foreach ($columns as $column) {
             $resourceFields[] = "\t\t\t'{$column['column_name']}' => \$this->{$column['column_name']},";
         }
@@ -539,7 +509,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function parseFillableColumns(): array
     {
-        $columns = $this->parseColumnsFromOption();
+        $columns = $this->getColumns();
 
         return array_column(array_filter($columns, fn ($col) => $col['is_fillable']), 'column_name');
     }
@@ -549,7 +519,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function parseHiddenColumns(): array
     {
-        $columns = $this->parseColumnsFromOption();
+        $columns = $this->getColumns();
         $hiddenColumns = [];
 
         // Auto-detect common sensitive fields
@@ -574,7 +544,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
     protected function generateCastsArray(): array
     {
         $casts = [];
-        $columns = $this->parseColumnsFromOption();
+        $columns = $this->getColumns();
 
         foreach ($columns as $column) {
             $castType = TypeMappingService::getCastTypeFromDataType($column['data_type']);
@@ -591,11 +561,6 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function parseColumnsFromOption(): array
     {
-        // Return cached columns if already parsed
-        if ($this->cachedColumns !== null) {
-            return $this->cachedColumns;
-        }
-
         $columnsJson = $this->option('columns');
 
         if ($columnsJson) {
@@ -616,6 +581,16 @@ class CustomModelMakeCommand extends ModelMakeCommand
 
     protected function getColumns()
     {
+        // Return cached columns if already parsed
+        if ($this->cachedColumns !== null) {
+            return $this->cachedColumns;
+        }
+
+        // If columns' option is provided, skip interactive prompts
+        if ($this->option('columns')) {
+            return $this->parseColumnsFromOption();
+        }
+
         // Interactive column input using Laravel Prompts when columns option is empty
         $columns = [];
 
@@ -674,19 +649,6 @@ class CustomModelMakeCommand extends ModelMakeCommand
         }
 
         throw new \RuntimeException('Enhanced model stub file not found at: '.$customPath);
-    }
-
-    /**
-     * Get custom stub path for migration
-     */
-    protected function getCustomMigrationStubPath(): string
-    {
-        $customPath = app_path('CustomModelGenerator/stubs/migration.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
-        }
-
-        throw new \RuntimeException('Enhanced migration stub file not found at: '.$customPath);
     }
 
     /**

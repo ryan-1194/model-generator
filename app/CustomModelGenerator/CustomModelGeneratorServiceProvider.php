@@ -2,11 +2,13 @@
 
 namespace App\CustomModelGenerator;
 
+use App\CustomModelGenerator\Console\CustomMigrationMakeCommand;
 use App\CustomModelGenerator\Console\CustomModelFromTableCommand;
 use App\CustomModelGenerator\Console\CustomModelMakeCommand;
 use App\CustomModelGenerator\Console\GenerateCacheCommand;
 use App\CustomModelGenerator\Console\GenerateRepository;
 use App\CustomModelGenerator\Console\GenerateRepositoryInterface;
+use App\CustomModelGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,7 +19,10 @@ class CustomModelGeneratorServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register the DatabaseColumnReaderService as a singleton
+        $this->app->singleton(DatabaseColumnReaderService::class, function ($app) {
+            return new DatabaseColumnReaderService();
+        });
     }
 
     /**
@@ -40,6 +45,7 @@ class CustomModelGeneratorServiceProvider extends ServiceProvider
             GenerateCacheCommand::class,
             CustomModelMakeCommand::class,
             CustomModelFromTableCommand::class,
+            CustomMigrationMakeCommand::class,
         ]);
     }
 
