@@ -75,28 +75,26 @@ class GenerateRepository extends GeneratorCommand
         $repositoryInterfacePath = app_path('Repositories/Contracts/RepositoryInterface.php');
 
         // Check if base files don't exist (first run)
-        if (!file_exists($baseRepositoryPath) || !file_exists($repositoryInterfacePath)) {
-            $this->info('Generating base repository files (first run)...');
-
+        if (! file_exists($baseRepositoryPath) || ! file_exists($repositoryInterfacePath)) {
             // Create Repositories directory structure
             $repositoriesDir = app_path('Repositories');
             $contractsDir = app_path('Repositories/Contracts');
 
-            if (!is_dir($repositoriesDir)) {
+            if (! is_dir($repositoriesDir)) {
                 mkdir($repositoriesDir, 0755, true);
             }
 
-            if (!is_dir($contractsDir)) {
+            if (! is_dir($contractsDir)) {
                 mkdir($contractsDir, 0755, true);
             }
 
             // Generate BaseRepository if it doesn't exist
-            if (!file_exists($baseRepositoryPath)) {
+            if (! file_exists($baseRepositoryPath)) {
                 $this->generateBaseRepository($baseRepositoryPath);
             }
 
             // Generate RepositoryInterface if it doesn't exist
-            if (!file_exists($repositoryInterfacePath)) {
+            if (! file_exists($repositoryInterfacePath)) {
                 $this->generateRepositoryInterface($repositoryInterfacePath);
             }
         }
@@ -109,7 +107,8 @@ class GenerateRepository extends GeneratorCommand
     {
         $baseRepositoryContent = $this->getBaseRepositoryStub();
         file_put_contents($path, $baseRepositoryContent);
-        $this->info('BaseRepository created successfully.');
+
+        $this->components->info(sprintf('%s [%s] created successfully.', 'BaseRepository', $path));
     }
 
     /**
@@ -119,7 +118,8 @@ class GenerateRepository extends GeneratorCommand
     {
         $repositoryInterfaceContent = $this->getRepositoryInterfaceStub();
         file_put_contents($path, $repositoryInterfaceContent);
-        $this->info('RepositoryInterface created successfully.');
+
+        $this->components->info(sprintf('%s [%s] created successfully.', 'RepositoryInterface', $path));
     }
 
     /**

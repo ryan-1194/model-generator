@@ -77,28 +77,26 @@ class GenerateCacheCommand extends GeneratorCommand
         $withHelpersPath = app_path('Cache/Traits/WithHelpers.php');
 
         // Check if base files don't exist (first run)
-        if (!file_exists($cacheBasePath) || !file_exists($withHelpersPath)) {
-            $this->info('Generating base cache files (first run)...');
-
+        if (! file_exists($cacheBasePath) || ! file_exists($withHelpersPath)) {
             // Create Cache directory structure
             $cacheDir = app_path('Cache');
             $traitsDir = app_path('Cache/Traits');
 
-            if (!is_dir($cacheDir)) {
+            if (! is_dir($cacheDir)) {
                 mkdir($cacheDir, 0755, true);
             }
 
-            if (!is_dir($traitsDir)) {
+            if (! is_dir($traitsDir)) {
                 mkdir($traitsDir, 0755, true);
             }
 
             // Generate CacheBase if it doesn't exist
-            if (!file_exists($cacheBasePath)) {
+            if (! file_exists($cacheBasePath)) {
                 $this->generateCacheBase($cacheBasePath);
             }
 
             // Generate WithHelpers trait if it doesn't exist
-            if (!file_exists($withHelpersPath)) {
+            if (! file_exists($withHelpersPath)) {
                 $this->generateWithHelpers($withHelpersPath);
             }
         }
@@ -111,7 +109,8 @@ class GenerateCacheCommand extends GeneratorCommand
     {
         $cacheBaseContent = $this->getCacheBaseStub();
         file_put_contents($path, $cacheBaseContent);
-        $this->info('CacheBase created successfully.');
+
+        $this->components->info(sprintf('%s [%s] created successfully.', 'CacheBase', $path));
     }
 
     /**
@@ -121,7 +120,8 @@ class GenerateCacheCommand extends GeneratorCommand
     {
         $withHelpersContent = $this->getWithHelpersStub();
         file_put_contents($path, $withHelpersContent);
-        $this->info('WithHelpers trait created successfully.');
+
+        $this->components->info(sprintf('%s [%s] created successfully.', 'WithHelpers trait ', $path));
     }
 
     /**
