@@ -1,18 +1,18 @@
 <?php
 
-namespace App\CustomModelGenerator;
+namespace App\CustomGenerator;
 
-use App\CustomModelGenerator\Console\CustomMigrationMakeCommand;
-use App\CustomModelGenerator\Console\CustomModelFromTableCommand;
-use App\CustomModelGenerator\Console\CustomModelMakeCommand;
-use App\CustomModelGenerator\Console\GenerateCacheCommand;
-use App\CustomModelGenerator\Console\GenerateRepository;
-use App\CustomModelGenerator\Console\GenerateRepositoryInterface;
-use App\CustomModelGenerator\Services\DatabaseColumnReaderService;
+use App\CustomGenerator\Console\CustomMigrationMakeCommand;
+use App\CustomGenerator\Console\CustomModelFromTableCommand;
+use App\CustomGenerator\Console\CustomModelMakeCommand;
+use App\CustomGenerator\Console\GenerateCacheCommand;
+use App\CustomGenerator\Console\GenerateRepository;
+use App\CustomGenerator\Console\GenerateRepositoryInterface;
+use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 
-class CustomModelGeneratorServiceProvider extends ServiceProvider
+class CustomGeneratorServiceProvider extends ServiceProvider
 {
     /**
      * Register any application services.
@@ -20,9 +20,9 @@ class CustomModelGeneratorServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Register the DatabaseColumnReaderService as a singleton
-        $this->app->singleton(DatabaseColumnReaderService::class, function ($app) {
-            return new DatabaseColumnReaderService();
-        });
+//        $this->app->singleton(DatabaseColumnReaderService::class, function ($app) {
+//            return new DatabaseColumnReaderService();
+//        });
     }
 
     /**
@@ -35,7 +35,7 @@ class CustomModelGeneratorServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register all CustomModelGenerator commands
+     * Register all CustomGenerator commands
      */
     protected function registerCommands(): void
     {

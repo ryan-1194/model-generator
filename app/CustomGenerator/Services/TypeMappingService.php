@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CustomModelGenerator\Services;
+namespace App\CustomGenerator\Services;
 
 class TypeMappingService
 {

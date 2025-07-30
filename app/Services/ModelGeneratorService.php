@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\CustomModelGenerator\Services\TypeMappingService;
+use App\CustomGenerator\Services\TypeMappingService;
 use App\DTOs\ColumnData;
 use App\DTOs\ModelGenerationData;
 use App\Models\ModelDefinition;

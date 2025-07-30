@@ -265,10 +265,10 @@ php artisan make:custom-model Customer --repository --migration --factory
 
 ### Custom Stubs
 The command uses enhanced stub files located in:
-- `app/CustomModelGenerator/stubs/model.enhanced.stub` - Enhanced model template
-- `app/CustomModelGenerator/stubs/migration.enhanced.stub` - Enhanced migration template
-- `app/CustomModelGenerator/stubs/request.enhanced.stub` - Enhanced form request template
-- `app/CustomModelGenerator/stubs/resource.enhanced.stub` - Enhanced JSON resource template
+- `app/CustomGenerator/stubs/model.enhanced.stub` - Enhanced model template
+- `app/CustomGenerator/stubs/migration.enhanced.stub` - Enhanced migration template
+- `app/CustomGenerator/stubs/request.enhanced.stub` - Enhanced form request template
+- `app/CustomGenerator/stubs/resource.enhanced.stub` - Enhanced JSON resource template
 
 ### Automatic Code Generation
 The command automatically generates:

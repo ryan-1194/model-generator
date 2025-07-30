@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CustomModelGenerator\Console;
+namespace App\CustomGenerator\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;

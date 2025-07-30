@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CustomModelGenerator\Console;
+namespace App\CustomGenerator\Console;
 
 use InvalidArgumentException;
 use function Laravel\Prompts\confirm;

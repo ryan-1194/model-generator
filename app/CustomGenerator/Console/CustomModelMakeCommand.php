@@ -1,8 +1,8 @@
 <?php
 
-namespace App\CustomModelGenerator\Console;
+namespace App\CustomGenerator\Console;
 
-use App\CustomModelGenerator\Services\TypeMappingService;
+use App\CustomGenerator\Services\TypeMappingService;
 use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -496,7 +496,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function getCustomResourceStubPath(): string
     {
-        $customPath = app_path('CustomModelGenerator/stubs/resource.enhanced.stub');
+        $customPath = app_path('CustomGenerator/stubs/resource.enhanced.stub');
         if (File::exists($customPath)) {
             return $customPath;
         }
@@ -643,7 +643,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function getCustomStubPath(): string
     {
-        $customPath = app_path('CustomModelGenerator/stubs/model.enhanced.stub');
+        $customPath = app_path('CustomGenerator/stubs/model.enhanced.stub');
         if (File::exists($customPath)) {
             return $customPath;
         }
@@ -656,7 +656,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
      */
     protected function getCustomRequestStubPath(): string
     {
-        $customPath = app_path('CustomModelGenerator/stubs/request.enhanced.stub');
+        $customPath = app_path('CustomGenerator/stubs/request.enhanced.stub');
         if (File::exists($customPath)) {
             return $customPath;
         }

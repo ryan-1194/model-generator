@@ -1,8 +1,8 @@
 <?php
 
-namespace App\CustomModelGenerator\Console;
+namespace App\CustomGenerator\Console;
 
-use App\CustomModelGenerator\Services\DatabaseColumnReaderService;
+use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -183,7 +183,7 @@ class CustomMigrationMakeCommand extends Command
      */
     protected function getCustomMigrationStubPath(): string
     {
-        $customPath = app_path('CustomModelGenerator/stubs/migration.enhanced.stub');
+        $customPath = app_path('CustomGenerator/stubs/migration.enhanced.stub');
         if (File::exists($customPath)) {
             return $customPath;
         }

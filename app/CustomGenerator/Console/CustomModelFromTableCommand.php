@@ -1,8 +1,8 @@
 <?php
 
-namespace App\CustomModelGenerator\Console;
+namespace App\CustomGenerator\Console;
 
-use App\CustomModelGenerator\Services\DatabaseColumnReaderService;
+use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
