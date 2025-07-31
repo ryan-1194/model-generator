@@ -2,10 +2,15 @@
 
 namespace App\CustomGenerator\Console;
 
+use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputOption;
+
+use function Laravel\Prompts\info;
 
 #[AsCommand(name: 'make:custom-request')]
 class CustomFormRequestMakeCommand extends GeneratorCommand
@@ -30,6 +35,20 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      * @var string
      */
     protected $type = 'Request';
+
+    /**
+     * The database column reader service.
+     */
+    protected DatabaseColumnReaderService $columnReader;
+
+    /**
+     * Create a new command instance.
+     */
+    public function __construct(Filesystem $files, DatabaseColumnReaderService $columnReader)
+    {
+        parent::__construct($files);
+        $this->columnReader = $columnReader;
+    }
 
     /**
      * Get the stub file for the generator.
@@ -167,25 +186,50 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Parse columns from the columns option
+     * Parse columns from the columns option or read from database table using model option
      */
     protected function parseColumnsFromOption(): array
     {
         $columnsJson = $this->option('columns');
+        $modelName = $this->option('model');
 
-        if (empty($columnsJson)) {
-            return [];
+        // If columns are explicitly provided, use them
+        if (! empty($columnsJson)) {
+            $columns = json_decode($columnsJson, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $this->error('Invalid JSON format for columns option.');
+
+                return [];
+            }
+
+            return $columns;
         }
 
-        $columns = json_decode($columnsJson, true);
+        // If model option is provided, read columns from database table
+        if (! empty($modelName)) {
+            $tableName = Str::snake(Str::pluralStudly($modelName));
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->error('Invalid JSON format for columns option.');
+            // Check if table exists
+            if (! Schema::hasTable($tableName)) {
+                $this->error("Table '{$tableName}' does not exist in the database.");
 
-            return [];
+                return [];
+            }
+
+            info("Reading columns from table: {$tableName}");
+
+            try {
+                return $this->columnReader->getTableColumns($tableName);
+            } catch (\RuntimeException $e) {
+                $this->error($e->getMessage());
+
+                return [];
+            }
         }
 
-        return $columns;
+        // If neither columns nor model is provided, return empty array
+        return [];
     }
 
     /**
@@ -198,6 +242,7 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
         return [
             ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the request already exists'],
             ['columns', null, InputOption::VALUE_OPTIONAL, 'JSON string of column definitions'],
+            ['model', null, InputOption::VALUE_OPTIONAL, 'Model name to read columns from database table'],
         ];
     }
 }
