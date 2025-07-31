@@ -95,7 +95,7 @@ class CustomGeneratorServiceProvider extends ServiceProvider
                 $directInterface = reset($interfaces);
 
                 // Validate that we have a valid interface object
-                if ($directInterface && $directInterface instanceof \ReflectionClass) {
+                if ($directInterface instanceof \ReflectionClass) {
                     $interfaceName = $directInterface->getName();
 
                     // Only bind if the interface exists and is actually an interface

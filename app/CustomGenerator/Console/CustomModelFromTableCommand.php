@@ -34,7 +34,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
      *
      * @var array|null
      */
-    protected $cachedColumns = null;
+    protected ?array $cachedColumns = null;
 
     /**
      * The database column reader service.
@@ -53,7 +53,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): false|int
     {
         // Get the model name
         $modelName = $this->getNameInput();
@@ -86,7 +86,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
 
         info("Reading columns from table: {$tableName}");
 
-        // Read columns from database table
+        // Read columns from the database table
         try {
             $this->cachedColumns = $this->columnReader->getTableColumns($tableName);
         } catch (\RuntimeException $e) {
@@ -117,7 +117,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
         // Create custom model file with enhanced features
         $this->createCustomModelFile();
 
-        // Handle other options that parent would normally handle
+        // Handle other options that a parent would normally handle
         if ($this->option('factory')) {
             $this->createFactory();
         }

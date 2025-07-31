@@ -38,12 +38,12 @@ class CustomModelMakeCommand extends ModelMakeCommand
      *
      * @var array|null
      */
-    protected $cachedColumns = null;
+    protected ?array $cachedColumns = null;
 
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): false|int
     {
         // Create the model file first (skip parent to avoid default migration creation)
         if ($this->isReservedName($this->getNameInput())) {
@@ -450,7 +450,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
         return $this->cachedColumns;
     }
 
-    protected function getColumns()
+    protected function getColumns(): ?array
     {
         // Return cached columns if already parsed
         if ($this->cachedColumns !== null) {

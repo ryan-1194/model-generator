@@ -52,9 +52,9 @@ class GenerateCacheCommand extends GeneratorCommand
         return $rootNamespace.'\Cache\\'.$modelName;
     }
 
-    public function handle()
+    public function handle(): ?bool
     {
-        // Generate base files only on first run
+        // Generate base files only on the first run
         $this->generateBaseFilesIfNeeded();
 
         // Validate the model exists before doing anything else
@@ -69,7 +69,7 @@ class GenerateCacheCommand extends GeneratorCommand
     }
 
     /**
-     * Generate CacheBase and Traits folder only on first run
+     * Generate CacheBase and Traits folder only on the first run
      */
     protected function generateBaseFilesIfNeeded(): void
     {

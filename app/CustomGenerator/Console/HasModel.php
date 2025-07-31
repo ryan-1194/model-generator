@@ -16,7 +16,7 @@ trait HasModel
     {
         $modelClass = $this->parseModel($this->getModelInput());
 
-        // Check if model exists both by class_exists and by file existence
+        // Check if the model exists both by class_exists and by file existence
         // This handles cases where the model was just created but class_exists might not reflect it yet
         $modelExists = class_exists($modelClass) || $this->modelFileExists($modelClass);
 

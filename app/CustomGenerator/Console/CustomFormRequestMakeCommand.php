@@ -4,14 +4,15 @@ namespace App\CustomGenerator\Console;
 
 use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\text;
 
@@ -55,10 +56,8 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
 
     /**
      * Get the stub file for the generator.
-     *
-     * @return string
      */
-    protected function getStub()
+    protected function getStub(): string
     {
         return $this->resolveStubPath('/stubs/request.enhanced.stub');
     }
@@ -67,9 +66,8 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      * Resolve the fully qualified path to the stub.
      *
      * @param  string  $stub
-     * @return string
      */
-    protected function resolveStubPath($stub)
+    protected function resolveStubPath($stub): string
     {
         return file_exists($customPath = $this->laravel->basePath('app/CustomGenerator'.$stub))
             ? $customPath
@@ -80,9 +78,8 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      * Get the default namespace for the class.
      *
      * @param  string  $rootNamespace
-     * @return string
      */
-    protected function getDefaultNamespace($rootNamespace)
+    protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Http\Requests';
     }
@@ -91,9 +88,10 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      * Build the class with the given name.
      *
      * @param  string  $name
-     * @return string
+     *
+     * @throws FileNotFoundException
      */
-    protected function buildClass($name)
+    protected function buildClass($name): string
     {
         // Get the base stub content from the parent
         $stub = parent::buildClass($name);
@@ -179,11 +177,11 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
     /**
      * Replace the validation rules for the given stub.
      *
-     * @param  string  $stub
-     * @param  string  $validationRules
+     * @param string $stub
+     * @param string $validationRules
      * @return string
      */
-    protected function replaceValidationRules($stub, $validationRules)
+    protected function replaceValidationRules(string $stub, string $validationRules): string
     {
         return str_replace('{{ validationRules }}', $validationRules, $stub);
     }
@@ -240,7 +238,7 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      *
      * @return array
      */
-    protected function getOptions()
+    protected function getOptions(): array
     {
         return [
             ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the request already exists'],

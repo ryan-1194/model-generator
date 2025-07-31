@@ -4,6 +4,7 @@ namespace App\CustomGenerator\Console;
 
 use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -55,10 +56,8 @@ class CustomResourceMakeCommand extends GeneratorCommand
 
     /**
      * Get the stub file for the generator.
-     *
-     * @return string
      */
-    protected function getStub()
+    protected function getStub(): string
     {
         return $this->resolveStubPath('/stubs/resource.enhanced.stub');
     }
@@ -67,9 +66,8 @@ class CustomResourceMakeCommand extends GeneratorCommand
      * Resolve the fully-qualified path to the stub.
      *
      * @param  string  $stub
-     * @return string
      */
-    protected function resolveStubPath($stub)
+    protected function resolveStubPath($stub): string
     {
         return file_exists($customPath = $this->laravel->basePath('app/CustomGenerator'.$stub))
             ? $customPath
@@ -80,9 +78,8 @@ class CustomResourceMakeCommand extends GeneratorCommand
      * Get the default namespace for the class.
      *
      * @param  string  $rootNamespace
-     * @return string
      */
-    protected function getDefaultNamespace($rootNamespace)
+    protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Http\Resources';
     }
@@ -92,19 +89,19 @@ class CustomResourceMakeCommand extends GeneratorCommand
      *
      * @param  string  $name
      * @return string
+     *
+     * @throws FileNotFoundException
      */
-    protected function buildClass($name)
+    protected function buildClass($name): string
     {
-        // Get the base stub content from parent
+        // Get the base stub content from the parent
         $stub = parent::buildClass($name);
 
         // Generate resource fields based on columns
         $resourceFields = $this->generateResourceFields();
 
         // Replace resource fields placeholder
-        $stub = $this->replaceResourceFields($stub, $resourceFields);
-
-        return $stub;
+        return $this->replaceResourceFields($stub, $resourceFields);
     }
 
     /**
@@ -141,7 +138,7 @@ class CustomResourceMakeCommand extends GeneratorCommand
      * @param  string  $resourceFields
      * @return string
      */
-    protected function replaceResourceFields($stub, $resourceFields)
+    protected function replaceResourceFields($stub, $resourceFields): string
     {
         return str_replace('{{ resourceFields }}', $resourceFields, $stub);
     }
@@ -198,7 +195,7 @@ class CustomResourceMakeCommand extends GeneratorCommand
      *
      * @return array
      */
-    protected function getOptions()
+    protected function getOptions(): array
     {
         return [
             ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the resource already exists'],
