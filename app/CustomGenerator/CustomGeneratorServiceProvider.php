@@ -6,6 +6,7 @@ use App\CustomGenerator\Console\CustomFormRequestMakeCommand;
 use App\CustomGenerator\Console\CustomMigrationMakeCommand;
 use App\CustomGenerator\Console\CustomModelFromTableCommand;
 use App\CustomGenerator\Console\CustomModelMakeCommand;
+use App\CustomGenerator\Console\CustomResourceMakeCommand;
 use App\CustomGenerator\Console\GenerateCacheCommand;
 use App\CustomGenerator\Console\GenerateRepository;
 use App\CustomGenerator\Console\GenerateRepositoryInterface;
@@ -21,9 +22,9 @@ class CustomGeneratorServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Register the DatabaseColumnReaderService as a singleton
-//        $this->app->singleton(DatabaseColumnReaderService::class, function ($app) {
-//            return new DatabaseColumnReaderService();
-//        });
+        //        $this->app->singleton(DatabaseColumnReaderService::class, function ($app) {
+        //            return new DatabaseColumnReaderService();
+        //        });
     }
 
     /**
@@ -48,6 +49,7 @@ class CustomGeneratorServiceProvider extends ServiceProvider
             CustomModelFromTableCommand::class,
             CustomMigrationMakeCommand::class,
             CustomFormRequestMakeCommand::class,
+            CustomResourceMakeCommand::class,
         ]);
     }
 
@@ -59,7 +61,7 @@ class CustomGeneratorServiceProvider extends ServiceProvider
         $namespace = 'App\\Repositories\\';
         $repositoryPath = app_path('Repositories');
 
-        if (!File::exists($repositoryPath)) {
+        if (! File::exists($repositoryPath)) {
             return;
         }
 
@@ -69,8 +71,8 @@ class CustomGeneratorServiceProvider extends ServiceProvider
             $className = pathinfo($repositoryFile, PATHINFO_FILENAME);
             $class = $namespace.$className;
 
-            // Skip if class doesn't exist or is abstract
-            if (!class_exists($class)) {
+            // Skip if the class doesn't exist or is abstract
+            if (! class_exists($class)) {
                 continue;
             }
 

@@ -10,34 +10,34 @@ use Illuminate\Support\Str;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\text;
 
-#[AsCommand(name: 'make:custom-request')]
-class CustomFormRequestMakeCommand extends GeneratorCommand
+#[AsCommand(name: 'make:custom-resource')]
+class CustomResourceMakeCommand extends GeneratorCommand
 {
     /**
      * The console command name.
      *
      * @var string
      */
-    protected $name = 'make:custom-request';
+    protected $name = 'make:custom-resource';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Create a new form request class with enhanced validation rules';
+    protected $description = 'Create a new resource class with enhanced field generation';
 
     /**
      * The type of class being generated.
      *
      * @var string
      */
-    protected $type = 'Request';
+    protected $type = 'Resource';
 
     /**
      * The database column reader service.
@@ -60,11 +60,11 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      */
     protected function getStub()
     {
-        return $this->resolveStubPath('/stubs/request.enhanced.stub');
+        return $this->resolveStubPath('/stubs/resource.enhanced.stub');
     }
 
     /**
-     * Resolve the fully qualified path to the stub.
+     * Resolve the fully-qualified path to the stub.
      *
      * @param  string  $stub
      * @return string
@@ -84,7 +84,7 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      */
     protected function getDefaultNamespace($rootNamespace)
     {
-        return $rootNamespace.'\Http\Requests';
+        return $rootNamespace.'\Http\Resources';
     }
 
     /**
@@ -95,97 +95,55 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
      */
     protected function buildClass($name)
     {
-        // Get the base stub content from the parent
+        // Get the base stub content from parent
         $stub = parent::buildClass($name);
 
-        // Generate validation rules based on columns
-        $validationRules = $this->generateValidationRules();
+        // Generate resource fields based on columns
+        $resourceFields = $this->generateResourceFields();
 
-        // Replace validation rules placeholder
-        $stub = $this->replaceValidationRules($stub, $validationRules);
+        // Replace resource fields placeholder
+        $stub = $this->replaceResourceFields($stub, $resourceFields);
 
         return $stub;
     }
 
     /**
-     * Generate validation rules based on columns
+     * Generate resource fields based on columns
      */
-    protected function generateValidationRules(): string
+    protected function generateResourceFields(): string
     {
-        $rules = [];
+        $resourceFields = [];
+        $resourceFields[] = "\t\t\t'id' => \$this->id,";
+
         $columns = $this->parseColumnsFromOption();
-
         foreach ($columns as $column) {
-            if (! $column['is_fillable']) {
-                continue;
-            }
-
-            $rule = [];
-
-            // Add required rule if not nullable
-            if (! $column['nullable']) {
-                $rule[] = 'required';
-            } else {
-                $rule[] = 'nullable';
-            }
-
-            // Add data-type-specific rules
-            switch ($column['data_type']) {
-                case 'string':
-                    $rule[] = 'string';
-                    $rule[] = 'max:255';
-                    break;
-                case 'text':
-                    $rule[] = 'string';
-                    break;
-                case 'integer':
-                case 'bigInteger':
-                    $rule[] = 'integer';
-                    break;
-                case 'boolean':
-                    $rule[] = 'boolean';
-                    break;
-                case 'timestamp':
-                case 'datetime':
-                case 'date':
-                    $rule[] = 'date';
-                    break;
-                case 'decimal':
-                case 'float':
-                    $rule[] = 'numeric';
-                    break;
-                case 'json':
-                    $rule[] = 'array';
-                    break;
-            }
-
-            // Add a unique rule if specified
-            if ($column['unique']) {
-                // Extract model name from request class name
-                $requestName = class_basename($this->getNameInput());
-                $modelName = str_replace(['Store', 'Update', 'Request'], '', $requestName);
-                $tableName = Str::snake(Str::pluralStudly($modelName));
-                $rule[] = "unique:{$tableName},{$column['column_name']}";
-            }
-
-            if (! empty($rule)) {
-                $rules[] = "\t\t\t'{$column['column_name']}' => '".implode('|', $rule)."',";
-            }
+            $resourceFields[] = "\t\t\t'{$column['column_name']}' => \$this->{$column['column_name']},";
         }
 
-        return implode("\n", $rules);
+        // Add timestamps if not disabled
+        if (! $this->option('no-timestamps')) {
+            $resourceFields[] = "\t\t\t'created_at' => \$this->created_at,";
+            $resourceFields[] = "\t\t\t'updated_at' => \$this->updated_at,";
+        }
+
+        // Add soft deletes if enabled
+        if ($this->option('soft-deletes')) {
+            $resourceFields[] = "\t\t\t'deleted_at' => \$this->deleted_at,";
+        }
+
+        return implode("\n", $resourceFields);
     }
 
     /**
-     * Replace the validation rules for the given stub.
+     * Replace the resource fields for the given stub.
      *
      * @param  string  $stub
-     * @param  string  $validationRules
+     * @param  string  $resourceFields
      * @return string
      */
-    protected function replaceValidationRules($stub, $validationRules)
+    protected function replaceResourceFields($stub, $resourceFields)
     {
-        return str_replace('{{ validationRules }}', $validationRules, $stub);
+        return str_replace('{{ resourceFields }}', $resourceFields, $stub);
     }
 
     /**
@@ -209,7 +167,7 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
             return $columns;
         }
 
-        // If a model option is provided, read columns from the database table
+        // If model option is provided, read columns from database table
         if (! empty($modelName)) {
             $tableName = Str::snake(Str::pluralStudly($modelName));
 
@@ -231,7 +189,7 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
             }
         }
 
-        // If neither columns nor model is provided, return an empty array
+        // If neither columns nor model is provided, return empty array
         return [];
     }
 
@@ -243,9 +201,11 @@ class CustomFormRequestMakeCommand extends GeneratorCommand
     protected function getOptions()
     {
         return [
-            ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the request already exists'],
+            ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the resource already exists'],
             ['columns', null, InputOption::VALUE_OPTIONAL, 'JSON string of column definitions'],
             ['model', null, InputOption::VALUE_OPTIONAL, 'Model name to read columns from database table'],
+            ['soft-deletes', null, InputOption::VALUE_NONE, 'Include soft deletes field in the resource'],
+            ['no-timestamps', null, InputOption::VALUE_NONE, 'Exclude timestamps from the resource'],
         ];
     }
 

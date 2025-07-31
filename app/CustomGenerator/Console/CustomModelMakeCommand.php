@@ -321,7 +321,6 @@ class CustomModelMakeCommand extends ModelMakeCommand
 
         // Pass columns if available
         if (! empty($this->cachedColumns)) {
-            // Pass columns obtained from interactive prompts
             $options['--columns'] = json_encode($this->cachedColumns);
         }
 
@@ -340,79 +339,40 @@ class CustomModelMakeCommand extends ModelMakeCommand
     }
 
     /**
-     * Create a JSON resource for the model
+     * Create a JSON resource for the model using the standalone command
      */
     protected function createJsonResource(): void
     {
         $modelName = class_basename($this->argument('name'));
         $resourceName = "{$modelName}Resource";
 
-        // Create the Resources directory if it doesn't exist
-        $resourcesDir = app_path('Http/Resources');
-        if (! File::exists($resourcesDir)) {
-            File::makeDirectory($resourcesDir, 0755, true);
+        // Prepare options for the resource command
+        $options = [];
+
+        // Pass columns if available
+        if (! empty($this->cachedColumns)) {
+            $options['--columns'] = json_encode($this->cachedColumns);
         }
 
-        // Generate resource content using custom logic
-        $resourceContent = $this->generateCustomJsonResourceContent($resourceName);
-
-        // Write the resource file
-        $resourcePath = app_path("Http/Resources/{$resourceName}.php");
-        File::put($resourcePath, $resourceContent);
-
-        $this->components->info(sprintf('%s [%s] created successfully.', 'JSON Resource', $resourceName));
-    }
-
-    /**
-     * Generate custom JSON resource content
-     */
-    protected function generateCustomJsonResourceContent(string $resourceName): string
-    {
-        // Read the enhanced resource stub file
-        $stubPath = $this->getCustomResourceStubPath();
-        $stub = File::get($stubPath);
-
-        // Generate array of columns for the resource
-        $resourceFields = [];
-        $resourceFields[] = "\t\t\t'id' => \$this->id,";
-
-        $columns = $this->getColumns();
-        foreach ($columns as $column) {
-            $resourceFields[] = "\t\t\t'{$column['column_name']}' => \$this->{$column['column_name']},";
-        }
-
-        if (! $this->option('no-timestamps')) {
-            $resourceFields[] = "\t\t\t'created_at' => \$this->created_at,";
-            $resourceFields[] = "\t\t\t'updated_at' => \$this->updated_at,";
-        }
-
+        // Pass soft-deletes option
         if ($this->option('soft-deletes')) {
-            $resourceFields[] = "\t\t\t'deleted_at' => \$this->deleted_at,";
+            $options['--soft-deletes'] = true;
         }
 
-        $fieldsString = implode("\n", $resourceFields);
-
-        // Replace placeholders with actual values
-        $replacements = [
-            '{{ namespace }}' => 'App\\Http\\Resources',
-            '{{ class }}' => $resourceName,
-            '{{ resourceFields }}' => $fieldsString,
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
-    }
-
-    /**
-     * Get custom stub path for resource
-     */
-    protected function getCustomResourceStubPath(): string
-    {
-        $customPath = app_path('CustomGenerator/stubs/resource.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
+        // Pass no-timestamps option
+        if ($this->option('no-timestamps')) {
+            $options['--no-timestamps'] = true;
         }
 
-        throw new \RuntimeException('Enhanced resource stub file not found at: '.$customPath);
+        // Pass force option
+        if ($this->option('force')) {
+            $options['--force'] = true;
+        }
+
+        // Call the custom resource command
+        $this->call('make:custom-resource', array_merge([
+            'name' => $resourceName,
+        ], $options));
     }
 
     /**
