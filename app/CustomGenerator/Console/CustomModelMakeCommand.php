@@ -6,10 +6,10 @@ use App\CustomGenerator\Services\TypeMappingService;
 use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
@@ -95,7 +95,7 @@ class CustomModelMakeCommand extends ModelMakeCommand
 
         // Create custom form requests if requested
         if ($this->option('requests')) {
-            $this->createCustomFormRequests();
+            $this->createRequests();
         }
 
         if ($this->option('seed')) {
@@ -224,118 +224,29 @@ class CustomModelMakeCommand extends ModelMakeCommand
     }
 
     /**
-     * Create custom form requests
+     * Create custom form requests using the standalone command
      */
-    protected function createCustomFormRequests(): void
+    protected function createRequests(): void
     {
         $modelName = class_basename($this->argument('name'));
 
-        // Create Store request
-        $this->createCustomFormRequest("Store{$modelName}Request");
+        // Prepare options for the form request command
+        $options = [];
 
-        // Create Update request
-        $this->createCustomFormRequest("Update{$modelName}Request");
-    }
-
-    /**
-     * Create a single custom form request
-     */
-    protected function createCustomFormRequest(string $requestName): void
-    {
-        // Create the Requests directory if it doesn't exist
-        $requestsDir = app_path('Http/Requests');
-        if (! File::exists($requestsDir)) {
-            File::makeDirectory($requestsDir, 0755, true);
+        // Pass columns if available
+        if (! empty($this->cachedColumns)) {
+            $options['--columns'] = json_encode($this->cachedColumns);
         }
 
-        // Generate request content
-        $requestContent = $this->generateCustomFormRequestContent($requestName);
+        // Create a Store request
+        $this->call('make:custom-request', array_merge([
+            'name' => "Store{$modelName}Request",
+        ], $options));
 
-        // Write the request file
-        $requestPath = app_path("Http/Requests/{$requestName}.php");
-        File::put($requestPath, $requestContent);
-
-        $this->components->info(sprintf('%s [%s] updated successfully.', 'Request', $requestPath));
-    }
-
-    /**
-     * Generate custom form request content
-     */
-    protected function generateCustomFormRequestContent(string $requestName): string
-    {
-        // Read the enhanced request stub file
-        $stubPath = $this->getCustomRequestStubPath();
-        $stub = File::get($stubPath);
-
-        // Generate validation rules based on columns
-        $rules = [];
-        $columns = $this->getColumns();
-
-        foreach ($columns as $column) {
-            if (! $column['is_fillable']) {
-                continue;
-            }
-
-            $rule = [];
-
-            // Add required rule if not nullable
-            if (! $column['nullable']) {
-                $rule[] = 'required';
-            } else {
-                $rule[] = 'nullable';
-            }
-
-            // Add data type specific rules
-            switch ($column['data_type']) {
-                case 'string':
-                    $rule[] = 'string';
-                    $rule[] = 'max:255';
-                    break;
-                case 'text':
-                    $rule[] = 'string';
-                    break;
-                case 'integer':
-                case 'bigInteger':
-                    $rule[] = 'integer';
-                    break;
-                case 'boolean':
-                    $rule[] = 'boolean';
-                    break;
-                case 'timestamp':
-                case 'datetime':
-                case 'date':
-                    $rule[] = 'date';
-                    break;
-                case 'decimal':
-                case 'float':
-                    $rule[] = 'numeric';
-                    break;
-                case 'json':
-                    $rule[] = 'array';
-                    break;
-            }
-
-            // Add unique rule if specified
-            if ($column['unique']) {
-                $tableName = Str::snake(Str::pluralStudly(class_basename($this->argument('name'))));
-                $rule[] = "unique:{$tableName},{$column['column_name']}";
-            }
-
-            if (! empty($rule)) {
-                $rules[] = "\t\t\t'{$column['column_name']}' => '".implode('|', $rule)."',";
-            }
-        }
-
-        $rulesString = implode("\n", $rules);
-
-        // Replace placeholders
-        $replacements = [
-            '{{ namespace }}' => 'App\\Http\\Requests',
-            '{{ class }}' => $requestName,
-            '{{ validationRules }}' => $rulesString,
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $stub);
+        // Create an Update request
+        $this->call('make:custom-request', array_merge([
+            'name' => "Update{$modelName}Request",
+        ], $options));
     }
 
     /**
@@ -649,19 +560,6 @@ class CustomModelMakeCommand extends ModelMakeCommand
         }
 
         throw new \RuntimeException('Enhanced model stub file not found at: '.$customPath);
-    }
-
-    /**
-     * Get custom stub path for request
-     */
-    protected function getCustomRequestStubPath(): string
-    {
-        $customPath = app_path('CustomGenerator/stubs/request.enhanced.stub');
-        if (File::exists($customPath)) {
-            return $customPath;
-        }
-
-        throw new \RuntimeException('Enhanced request stub file not found at: '.$customPath);
     }
 
     /**

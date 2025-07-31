@@ -2,6 +2,7 @@
 
 namespace App\CustomGenerator;
 
+use App\CustomGenerator\Console\CustomFormRequestMakeCommand;
 use App\CustomGenerator\Console\CustomMigrationMakeCommand;
 use App\CustomGenerator\Console\CustomModelFromTableCommand;
 use App\CustomGenerator\Console\CustomModelMakeCommand;
@@ -46,6 +47,7 @@ class CustomGeneratorServiceProvider extends ServiceProvider
             CustomModelMakeCommand::class,
             CustomModelFromTableCommand::class,
             CustomMigrationMakeCommand::class,
+            CustomFormRequestMakeCommand::class,
         ]);
     }
 

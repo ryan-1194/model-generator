@@ -127,7 +127,7 @@ class CustomModelFromTableCommand extends CustomModelMakeCommand
         }
 
         if ($this->option('requests')) {
-            $this->createCustomFormRequests();
+            $this->createRequests();
         }
 
         if ($this->repositoryCommandExists() && $this->option('repository')) {
