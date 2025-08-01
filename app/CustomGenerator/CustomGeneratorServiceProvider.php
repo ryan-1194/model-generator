@@ -10,7 +10,6 @@ use App\CustomGenerator\Console\CustomResourceMakeCommand;
 use App\CustomGenerator\Console\GenerateCacheCommand;
 use App\CustomGenerator\Console\GenerateRepository;
 use App\CustomGenerator\Console\GenerateRepositoryInterface;
-use App\CustomGenerator\Services\DatabaseColumnReaderService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 
@@ -19,13 +18,7 @@ class CustomGeneratorServiceProvider extends ServiceProvider
     /**
      * Register any application services.
      */
-    public function register(): void
-    {
-        // Register the DatabaseColumnReaderService as a singleton
-        //        $this->app->singleton(DatabaseColumnReaderService::class, function ($app) {
-        //            return new DatabaseColumnReaderService();
-        //        });
-    }
+    public function register(): void {}
 
     /**
      * Bootstrap any application services.
@@ -91,12 +84,25 @@ class CustomGeneratorServiceProvider extends ServiceProvider
                     continue;
                 }
 
-                // Get the first interface (most specific one)
-                $directInterface = reset($interfaces);
+                // Find the most specific interface (not the base RepositoryInterface)
+                $targetInterface = null;
+                foreach ($interfaces as $interface) {
+                    $interfaceName = $interface->getName();
+                    // Skip the base RepositoryInterface and bind the more specific one
+                    if ($interfaceName !== 'App\Repositories\Contracts\RepositoryInterface') {
+                        $targetInterface = $interface;
+                        break;
+                    }
+                }
+
+                // If no specific interface found, use the first one as fallback
+                if (! $targetInterface) {
+                    $targetInterface = reset($interfaces);
+                }
 
                 // Validate that we have a valid interface object
-                if ($directInterface instanceof \ReflectionClass) {
-                    $interfaceName = $directInterface->getName();
+                if ($targetInterface instanceof \ReflectionClass) {
+                    $interfaceName = $targetInterface->getName();
 
                     // Only bind if the interface exists and is actually an interface
                     if (interface_exists($interfaceName)) {
