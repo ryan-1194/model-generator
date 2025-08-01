@@ -1,0 +1,584 @@
+<?php
+
+namespace App\CustomGenerator\Console;
+
+use App\CustomGenerator\Services\TypeMappingService;
+use Illuminate\Foundation\Console\ModelMakeCommand;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\error;
+use function Laravel\Prompts\info;
+use function Laravel\Prompts\multiselect;
+use function Laravel\Prompts\select;
+use function Laravel\Prompts\text;
+
+class CustomModelMakeCommand extends ModelMakeCommand
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $name = 'make:custom-model';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Create a custom model with enhanced features';
+
+    /**
+     * Cached columns to avoid multiple prompts
+     *
+     * @var array|null
+     */
+    protected ?array $cachedColumns = null;
+
+    /**
+     * Execute the console command.
+     */
+    public function handle(): false|int
+    {
+        // Create the model file first (skip parent to avoid default migration creation)
+        if ($this->isReservedName($this->getNameInput())) {
+            $this->error('The name "'.$this->getNameInput().'" is reserved by PHP.');
+
+            return false;
+        }
+
+        // First check if the class already exists.
+        if ((! $this->hasOption('force') ||
+             ! $this->option('force')) &&
+             $this->alreadyExists($this->getNameInput())) {
+            $this->error($this->type.' already exists!');
+
+            return false;
+        }
+
+        $this->cachedColumns = $this->getColumns();
+
+        if ($this->option('all')) {
+            $this->input->setOption('factory', true);
+            $this->input->setOption('seed', true);
+            $this->input->setOption('migration', true);
+            $this->input->setOption('controller', true);
+            $this->input->setOption('policy', true);
+            $this->input->setOption('api', true);
+            $this->input->setOption('requests', true);
+            $this->input->setOption('repository', true);
+            $this->input->setOption('json-resource', true);
+            $this->input->setOption('cache', true);
+        }
+
+        // Create custom model file with enhanced features
+        $this->createCustomModelFile();
+
+        // Handle other options that parent would normally handle
+        if ($this->option('factory')) {
+            $this->createFactory();
+        }
+
+        // Migration creation has been moved to a separate command: make:custom-migration
+        if ($this->option('migration')) {
+            $this->createCustomMigration();
+        }
+
+        if ($this->option('controller') || $this->option('resource') || $this->option('api')) {
+            $this->createController();
+        }
+
+        // Create custom form requests if requested
+        if ($this->option('requests')) {
+            $this->createRequests();
+        }
+
+        if ($this->option('seed')) {
+            $this->createSeeder();
+        }
+
+        if ($this->repositoryCommandExists() && $this->option('repository')) {
+            $this->createRepository();
+        }
+
+        if ($this->cacheCommandExists() && $this->option('cache')) {
+            $this->createCache();
+        }
+
+        if ($this->option('json-resource')) {
+            $this->createJsonResource();
+        }
+
+        if ($this->option('policy')) {
+            $this->createPolicy();
+        }
+
+        return 0;
+    }
+
+    /**
+     * Create custom model file with enhanced features
+     */
+    protected function createCustomModelFile(): void
+    {
+        $name = $this->qualifyClass($this->getNameInput());
+        $path = $this->getPath($name);
+
+        // Generate model content using custom logic
+        $modelContent = $this->generateCustomModelContent();
+
+        // Write the model file
+        $this->makeDirectory($path);
+        $this->files->put($path, $modelContent);
+
+        $this->components->info(sprintf('%s [%s] created successfully.', 'Model', $path));
+    }
+
+    /**
+     * Generate custom model content
+     */
+    protected function generateCustomModelContent(): string
+    {
+        $modelName = $this->getNameInput();
+
+        // Read the enhanced model stub file
+        $stubPath = $this->getCustomStubPath();
+        $stub = File::get($stubPath);
+
+        $replacements = [
+            '{{ namespace }}' => $this->getNamespace($this->qualifyClass($this->getNameInput())),
+            '{{ class }}' => $modelName,
+        ];
+
+        // Handle trait imports
+        $imports = [];
+        if ($this->option('factory')) {
+            $imports[] = 'use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;';
+        }
+        if ($this->option('soft-deletes')) {
+            $imports[] = 'use Illuminate\\Database\\Eloquent\\SoftDeletes;';
+        }
+
+        if (! empty($imports)) {
+            $replacements['{{ imports }}'] = implode("\n", $imports);
+        } else {
+            $replacements["{{ imports }}\n"] = '';
+        }
+
+        // Handle trait usage
+        $traits = [];
+        if ($this->option('factory')) {
+            $traits[] = 'HasFactory';
+        }
+        if ($this->option('soft-deletes')) {
+            $traits[] = 'SoftDeletes';
+        }
+
+        if (! empty($traits)) {
+            $factoryAnnotation = '';
+            if (in_array('HasFactory', $traits)) {
+                $factoryAnnotation = "\t/** @use HasFactory<\\Database\\Factories\\{$modelName}Factory> */";
+            }
+            $replacements['{{ traits }}'] = $factoryAnnotation."\n\tuse ".implode(', ', $traits).";\n";
+        } else {
+            $replacements['{{ traits }}'] = "\t//\n";
+        }
+
+        // Generate a fillable array from the column option
+        $fillableColumns = $this->parseFillableColumns();
+        if (! empty($fillableColumns)) {
+            $replacements['{{ fillableArray }}'] = "\t/**\n\t * The attributes that are mass assignable.\n\t *\n\t * @var list<string>\n\t */\n\tprotected \$fillable = [\n\t\t'".implode("',\n\t\t'", $fillableColumns)."',\n\t];\n";
+        } else {
+            $replacements["{{ fillableArray }}\n"] = '';
+        }
+
+        // Generate hidden array (for sensitive fields like password, remember_token)
+        $hiddenColumns = $this->parseHiddenColumns();
+        if (! empty($hiddenColumns)) {
+            $replacements['{{ hiddenArray }}'] = "\t/**\n\t * The attributes that should be hidden for serialization.\n\t *\n\t * @var list<string>\n\t */\n\tprotected \$hidden = [\n\t\t'".implode("',\n\t\t'", $hiddenColumns)."',\n\t];\n";
+        } else {
+            $replacements["{{ hiddenArray }}\n"] = '';
+        }
+
+        // Generate casts method
+        $casts = $this->generateCastsArray();
+        if (! empty($casts)) {
+            $replacements['{{ castsMethod }}'] = "\t/**\n\t * Get the attributes that should be cast.\n\t *\n\t * @return array<string, string>\n\t */\n\tprotected function casts(): array\n\t{\n\t\treturn [\n\t\t\t".implode(",\n\t\t\t", $casts).",\n\t\t];\n\t}\n";
+        } else {
+            $replacements["{{ castsMethod }}\n"] = '';
+        }
+
+        // Generate timestamps property
+        if ($this->option('no-timestamps')) {
+            $replacements['{{ timestampsProperty }}'] = "public \$timestamps = false;\n";
+        } else {
+            $replacements["{{ timestampsProperty }}\n"] = '';
+        }
+
+        return str_replace(array_keys($replacements), array_values($replacements), $stub);
+    }
+
+    /**
+     * Create custom form requests using the standalone command
+     */
+    protected function createRequests(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+
+        // Prepare options for the form request command
+        $options = [];
+
+        // Pass columns if available
+        if (! empty($this->cachedColumns)) {
+            $options['--columns'] = json_encode($this->cachedColumns);
+        }
+
+        // Create a Store request
+        $this->call('make:custom-request', array_merge([
+            'name' => "Store{$modelName}Request",
+        ], $options));
+
+        // Create an Update request
+        $this->call('make:custom-request', array_merge([
+            'name' => "Update{$modelName}Request",
+        ], $options));
+    }
+
+    /**
+     * Generate column definition for migration
+     */
+    protected function generateColumnDefinition(array $column): string
+    {
+        $definition = "\$table->{$column['data_type']}('{$column['column_name']}')";
+
+        if ($column['nullable']) {
+            $definition .= '->nullable()';
+        }
+
+        if ($column['unique']) {
+            $definition .= '->unique()';
+        }
+
+        if (! empty($column['default_value'])) {
+            $defaultValue = is_string($column['default_value']) ? "'{$column['default_value']}'" : $column['default_value'];
+            $definition .= "->default({$defaultValue})";
+        }
+
+        $definition .= ';';
+
+        return $definition;
+    }
+
+    /**
+     * Create a repository for the model
+     */
+    protected function createRepository(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+        $repositoryName = "{$modelName}Repository";
+        $repositoryInterfaceName = "{$modelName}RepositoryInterface";
+
+        // Create a repository using Artisan command
+        $this->call('make:repository', [
+            'model' => $modelName,
+            'name' => $repositoryName,
+            'interface' => $repositoryInterfaceName,
+        ]);
+    }
+
+    /**
+     * Create a cache class for the model
+     */
+    protected function createCache(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+
+        // Create a cache using Artisan command
+        $this->call('make:cache', [
+            'model' => $modelName,
+        ]);
+    }
+
+    /**
+     * Create a custom migration for the model
+     */
+    protected function createCustomMigration(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+
+        // Prepare arguments for the migration command
+        $arguments = [
+            'model' => $modelName,
+        ];
+
+        // Prepare options for the migration command
+        $options = [];
+
+        // Pass columns if available
+        if (! empty($this->cachedColumns)) {
+            $options['--columns'] = json_encode($this->cachedColumns);
+        }
+
+        // Pass soft-deletes option
+        if ($this->option('soft-deletes')) {
+            $options['--soft-deletes'] = true;
+        }
+
+        // Pass no-timestamps option
+        if ($this->option('no-timestamps')) {
+            $options['--no-timestamps'] = true;
+        }
+
+        // Call the custom migration command
+        $this->call('make:custom-migration', array_merge($arguments, $options));
+    }
+
+    /**
+     * Create a JSON resource for the model using the standalone command
+     */
+    protected function createJsonResource(): void
+    {
+        $modelName = class_basename($this->argument('name'));
+        $resourceName = "{$modelName}Resource";
+
+        // Prepare options for the resource command
+        $options = [];
+
+        // Pass columns if available
+        if (! empty($this->cachedColumns)) {
+            $options['--columns'] = json_encode($this->cachedColumns);
+        }
+
+        // Pass soft-deletes option
+        if ($this->option('soft-deletes')) {
+            $options['--soft-deletes'] = true;
+        }
+
+        // Pass no-timestamps option
+        if ($this->option('no-timestamps')) {
+            $options['--no-timestamps'] = true;
+        }
+
+        // Pass force option
+        if ($this->option('force')) {
+            $options['--force'] = true;
+        }
+
+        // Call the custom resource command
+        $this->call('make:custom-resource', array_merge([
+            'name' => $resourceName,
+        ], $options));
+    }
+
+    /**
+     * Parse fillable columns from options
+     */
+    protected function parseFillableColumns(): array
+    {
+        $columns = $this->getColumns();
+
+        return array_column(array_filter($columns, fn ($col) => $col['is_fillable']), 'column_name');
+    }
+
+    /**
+     * Parse hidden columns (sensitive fields that should be hidden from serialization)
+     */
+    protected function parseHiddenColumns(): array
+    {
+        $columns = $this->getColumns();
+        $hiddenColumns = [];
+
+        // Auto-detect common sensitive fields
+        $sensitiveFields = ['password', 'remember_token', 'api_token', 'secret', 'token'];
+
+        foreach ($columns as $column) {
+            $columnName = $column['column_name'];
+            if (in_array($columnName, $sensitiveFields) ||
+                str_contains($columnName, 'password') ||
+                str_contains($columnName, 'token') ||
+                str_contains($columnName, 'secret')) {
+                $hiddenColumns[] = $columnName;
+            }
+        }
+
+        return $hiddenColumns;
+    }
+
+    /**
+     * Generate casts array
+     */
+    protected function generateCastsArray(): array
+    {
+        $casts = [];
+        $columns = $this->getColumns();
+
+        foreach ($columns as $column) {
+            $castType = TypeMappingService::getCastTypeFromDataType($column['data_type']);
+            if ($castType) {
+                $casts[] = "'{$column['column_name']}' => '{$castType}'";
+            }
+        }
+
+        return $casts;
+    }
+
+    /**
+     * Parse columns from option or interactive input
+     */
+    protected function parseColumnsFromOption(): array
+    {
+        $columnsJson = $this->option('columns');
+
+        if ($columnsJson) {
+            $columns = json_decode($columnsJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                error('Invalid JSON format for columns');
+                $this->cachedColumns = [];
+
+                return [];
+            }
+            $this->cachedColumns = $columns;
+
+            return $columns;
+        }
+
+        return $this->cachedColumns;
+    }
+
+    protected function getColumns(): ?array
+    {
+        // Return cached columns if already parsed
+        if ($this->cachedColumns !== null) {
+            return $this->cachedColumns;
+        }
+
+        // If columns' option is provided, skip interactive prompts
+        if ($this->option('columns')) {
+            return $this->parseColumnsFromOption();
+        }
+
+        // Interactive column input using Laravel Prompts when columns option is empty
+        $columns = [];
+
+        if (confirm('Would you like to add custom columns?', false)) {
+            while (true) {
+                $columnName = text(
+                    label: 'Column name',
+                    placeholder: 'Enter column name or leave empty to finish',
+                    hint: 'Press Enter without typing to finish adding columns'
+                );
+
+                if (empty($columnName)) {
+                    break;
+                }
+
+                $dataType = select(
+                    label: 'Data type',
+                    options: TypeMappingService::getDataTypeOptions(),
+                    default: 'string'
+                );
+
+                $nullable = confirm('Should this column be nullable?', false);
+                $unique = confirm('Should this column be unique?', false);
+                $fillable = confirm('Should this column be fillable?', true);
+
+                $defaultValue = text(
+                    label: 'Default value',
+                    placeholder: 'Leave empty for no default value',
+                    required: false
+                );
+
+                $columns[] = [
+                    'column_name' => $columnName,
+                    'data_type' => $dataType,
+                    'nullable' => $nullable,
+                    'unique' => $unique,
+                    'is_fillable' => $fillable,
+                    'default_value' => $defaultValue ?: '',
+                ];
+
+                info("Added column: {$columnName} ({$dataType})");
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Get custom stub path for model
+     */
+    protected function getCustomStubPath(): string
+    {
+        $customPath = app_path('CustomGenerator/stubs/model.enhanced.stub');
+        if (File::exists($customPath)) {
+            return $customPath;
+        }
+
+        throw new \RuntimeException('Enhanced model stub file not found at: '.$customPath);
+    }
+
+    /**
+     * Get the console command options.
+     */
+    protected function getOptions(): array
+    {
+        $options = [
+            ['columns', null, InputOption::VALUE_OPTIONAL, 'JSON string of column definitions'],
+            ['soft-deletes', null, InputOption::VALUE_NONE, 'Add soft deletes to the model'],
+            ['no-timestamps', null, InputOption::VALUE_NONE, 'Disable timestamps on the model'],
+            ['json-resource', null, InputOption::VALUE_NONE, 'Create a JSON resource for the model'],
+            ['repository', null, InputOption::VALUE_NONE, 'Create a repository for the model'],
+            ['cache', null, InputOption::VALUE_NONE, 'Create a cache class for the model'],
+        ];
+
+        return array_merge(parent::getOptions(), $options);
+    }
+
+    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
+    {
+        if ($this->isReservedName($this->getNameInput()) || $this->didReceiveOptions($input)) {
+            return;
+        }
+
+        $options = [
+            'seed' => 'Database Seeder',
+            'factory' => 'Factory',
+            'requests' => 'Form Requests',
+            'migration' => 'Migration',
+            'policy' => 'Policy',
+            'api' => 'API Controller',
+            'json-resource' => 'JSON Resource',
+            'soft-deletes' => 'Soft Deletes',
+        ];
+
+        if ($this->repositoryCommandExists()) {
+            $options['repository'] = 'Repository';
+        }
+
+        if ($this->cacheCommandExists()) {
+            $options['cache'] = 'Cache';
+        }
+
+        (new Collection(multiselect('Would you like any of the following?', $options)))->each(fn ($option) => $input->setOption($option, true));
+    }
+
+    protected function commandExists(string $command): bool
+    {
+        return collect(\Artisan::all())->has($command);
+    }
+
+    protected function repositoryCommandExists(): bool
+    {
+        return $this->commandExists('make:repository');
+    }
+
+    protected function cacheCommandExists(): bool
+    {
+        return $this->commandExists('make:cache');
+    }
+}

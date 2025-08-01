@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\CustomGenerator\Services\TypeMappingService;
 use App\DTOs\ColumnData;
 use App\DTOs\ModelGenerationData;
 use App\Models\ModelDefinition;
-use App\Services\TypeMappingService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
